@@ -7,31 +7,31 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type Balance struct {
-	Id     int
-	UserId int
-	Bal    float32
+type StdResponse struct {
+	Status  string  `json:"status"`
+	Message *string `json:"message"`
+	Data    *string `json:"data"`
 }
 
-var balance = []Balance{
-	{1, 11, 10000},
-	{2, 22, 20000},
-	{3, 33, 30000},
+var response = StdResponse{
+	Status:  "success",
+	Message: nil,
+	Data:    nil,
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(balance)
+	json.NewEncoder(w).Encode(response)
 }
 
 func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(balance)
+	json.NewEncoder(w).Encode(response)
 }
 
 func walletBalance(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(balance)
+	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
