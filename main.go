@@ -1,53 +1,23 @@
 package main
 
 import (
-	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"api.stanible.com/wallet/router"
 )
 
-type StdResponse struct {
-	Status  string  `json:"status"`
-	Message *string `json:"message"`
-	Data    *string `json:"data"`
-}
-
-var response = StdResponse{
-	Status:  "success",
-	Message: nil,
-	Data:    nil,
-}
-
-func register(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-func fiatTransaction(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-func walletBalance(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
 func main() {
+	// connStr := `postgres://admin:Gd0+p2\#Me@@.>iH?9=}Z+M[q9k_<D{@34.142.140.9/dev-wallet?sslmode=disable`
+	// db, err := sql.Open("postgres", connStr)
+
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
 	port := ":8080"
-	router := mux.NewRouter().StrictSlash(true)
-	router.Use(commonMiddleware)
-
-	router.HandleFunc("/wallet/register", register).Methods("POST")
-	router.HandleFunc("/wallet/fiat", fiatTransaction).Methods("POST")
-	router.HandleFunc("/wallet/fiat/balance/{user_id}", walletBalance).Methods("GET")
-	http.ListenAndServe(port, router)
-}
-
-func commonMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/json")
-		next.ServeHTTP(w, r)
-	})
+	r := router.Router()
+	fmt.Println("Starting server on port", port)
+	log.Fatal(http.ListenAndServe(port, r))
 }
