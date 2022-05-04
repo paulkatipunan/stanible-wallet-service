@@ -1,6 +1,6 @@
 CREATE TABLE accounts (
 	pk_account_id UUID DEFAULT uuid_generate_v4(),
-	user_id VARCHAR UNIQUE NOT NULL,
+	user_id UUID UNIQUE NOT NULL,
 	type user_type NOT NULL,
 	description VARCHAR,
 	active BOOLEAN DEFAULT TRUE,
@@ -35,7 +35,7 @@ CREATE TRIGGER update_table_modtime BEFORE UPDATE ON fiat_currencies FOR EACH RO
 
 CREATE TABLE fiat_transactions (
 	pk_fiat_transaction_id UUID DEFAULT uuid_generate_v4(),
-	fk_account_id UUID NOT NULL REFERENCES accounts(pk_account_id),
+	fk_user_id UUID NOT NULL REFERENCES accounts(user_id),
 	fk_transaction_type_id UUID NOT NULL REFERENCES transaction_types(pk_transaction_type_id),
 	fk_fiat_currency_id UUID NOT NULL REFERENCES fiat_currencies(pk_fiat_currency_id),
 	

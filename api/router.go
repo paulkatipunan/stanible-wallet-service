@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -38,8 +39,79 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func fiatTransaction(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.Response("success", ""))
+	// Get payloads and assign fiat_transaction model
+	var errorFound bool = true
+	var transactionPayload models.Transaction_payload
+	json.NewDecoder(r.Body).Decode(&transactionPayload)
+
+	// Begin tx
+	ctx := context.Background()
+	db := database.CreateConnection()
+	tx, err := db.BeginTx(ctx, nil)
+	defer db.Close()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sqlGetUsers := `
+		SELECT
+			COUNT(*) as total_users
+		FROM
+			accounts
+		WHERE
+			user_id IN (
+				$1,
+				$2
+			) AND
+			active = true
+	`
+
+	// 	Check if sender and receiver addresses are both active
+	var total_users int
+	tx.QueryRow(sqlGetUsers, transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id).Scan(&total_users)
+	if total_users < 2 {
+		// 	If not, rollback and return error
+		tx.Rollback()
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active"))
+	} else {
+		errorFound = false
+	}
+
+	// 	Insert fiat_transaction record
+	sqlInsertFiatTransaction := `
+		INSERT INTO fiat_transactions (
+			fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount
+		) VALUES
+			(
+				'2681d82e-dd66-4357-96dc-ee5c7b7a6797',
+				'd3661d82-34a4-447f-88c6-806b90f2f176',
+				'cc2bd118-3d45-4837-8071-085d6fae47f0',
+				-100
+			),
+			(
+				'9aa8ed53-dc51-448c-82fe-5f017f1c18fb',
+				'd3661d82-34a4-447f-88c6-806b90f2f176',
+				'cc2bd118-3d45-4837-8071-085d6fae47f0',
+				100
+			)
+		RETURNING pk_fiat_transaction_id
+	`
+	_, err = tx.ExecContext(ctx, "INSERT INTO pets (name, species) VALUES ('Fido', 'dog'), ('Albert', 'cat')")
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+	// 	 	Rollback if error
+	//  Insert fiat_ramp_logs record
+	// 	 	Rollback if error
+	//  Commit
+
+	if !errorFound {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(utils.Response("success", ""))
+	}
 }
 
 func walletBalance(w http.ResponseWriter, r *http.Request) {
