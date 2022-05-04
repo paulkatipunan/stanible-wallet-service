@@ -1,7 +1,7 @@
 CREATE TABLE accounts (
 	pk_account_id UUID DEFAULT uuid_generate_v4(),
 	user_id VARCHAR UNIQUE NOT NULL,
-	type ramp_type,
+	type ramp_type NOT NULL,
 	description VARCHAR,
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,

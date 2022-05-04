@@ -1,70 +1,65 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
 	"api.stanible.com/wallet/database"
+	"api.stanible.com/wallet/models"
+	"api.stanible.com/wallet/utils"
 	"github.com/gorilla/mux"
 )
 
-type StdResponse struct {
-	Status  string  `json:"status"`
-	Message *string `json:"message"`
-	Data    *string `json:"data"`
-}
-
-var response = StdResponse{
-	Status:  "success",
-	Message: nil,
-	Data:    nil,
-}
-
 func register(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	var account models.Accounts
+
+	payloadErr := json.NewDecoder(r.Body).Decode(&account)
+
+	if payloadErr != nil {
+		log.Fatalf("Unable to decode the request body.  %v", payloadErr)
+	}
+
+	db := database.CreateConnection()
+	defer db.Close()
+
+	var pk_account_id string
+	sqlStatement := `INSERT INTO accounts (user_id, type, description) VALUES ($1, $2, $3) RETURNING pk_account_id`
+	queryErr := db.QueryRow(sqlStatement, account.User_id, account.Type, account.Description).Scan(&pk_account_id)
+
+	if queryErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", queryErr.Error()))
+	} else {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(utils.Response("success", ""))
+	}
 }
 
 func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-type Accounts struct {
-	Pk_account_id string         `json:"pk_account_id"`
-	User_id       string         `json:"user_id"`
-	Type          string         `json:"type"`
-	Description   sql.NullString `json:"description"`
-	Active        bool           `json:"active"`
-	Created_at    string         `json:"created_at"`
-	Updated_at    string         `json:"updated_at"`
+	json.NewEncoder(w).Encode(utils.Response("success", ""))
 }
 
 func walletBalance(w http.ResponseWriter, r *http.Request) {
 	db := database.CreateConnection()
-	// close the db connection
 	defer db.Close()
 
-	var account_list []Accounts
+	var account_list []models.Accounts
 
 	sqlStatement := `SELECT * FROM accounts`
-
-	// execute the sql statement
 	rows, err := db.Query(sqlStatement)
 
 	if err != nil {
 		log.Fatalf("Unable to execute the query. %v", err)
 	}
 
-	// close the db connection
 	defer rows.Close()
 
 	// iterate over the rows
 	for rows.Next() {
-		var accounts Accounts
+		var accounts models.Accounts
 
 		// unmarshal the row object to accounts
 		err = rows.Scan(
