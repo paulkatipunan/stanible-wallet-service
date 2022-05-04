@@ -1,7 +1,7 @@
 CREATE TABLE accounts (
 	pk_account_id UUID DEFAULT uuid_generate_v4(),
 	user_id VARCHAR UNIQUE NOT NULL,
-	type ramp_type NOT NULL,
+	type user_type NOT NULL,
 	description VARCHAR,
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE accounts (
 
 CREATE TABLE transaction_types (
 	pk_transaction_type_id UUID DEFAULT uuid_generate_v4(),
-	ramp tx_type,
+	type tx_type UNIQUE NOT NULL,
 	description VARCHAR,
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -21,8 +21,8 @@ CREATE TABLE transaction_types (
 
 CREATE TABLE fiat_currencies (
 	pk_fiat_currency_id UUID DEFAULT uuid_generate_v4(),
-	name VARCHAR NOT NULL,
-	symbol VARCHAR NOT NULL,
+	name VARCHAR UNIQUE NOT NULL,
+	symbol VARCHAR UNIQUE NOT NULL,
 	description VARCHAR,
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
