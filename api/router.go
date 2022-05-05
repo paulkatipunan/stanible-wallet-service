@@ -183,9 +183,14 @@ func walletBalance(w http.ResponseWriter, r *http.Request) {
 				transaction_types tt
 				ON
 					ft.fk_transaction_type_id = tt.pk_transaction_type_id
+			LEFT JOIN
+				accounts a
+				ON
+					a.user_id = ft.fk_user_id
 			WHERE
 				ft.fk_user_id = $1 AND
-				tt.type IN ('withdraw', 'buy', 'refund')
+				tt.type IN ('withdraw', 'buy', 'refund') AND
+				a.active = true
 			) as balance
 		FROM
 			fiat_transactions ft
@@ -193,9 +198,14 @@ func walletBalance(w http.ResponseWriter, r *http.Request) {
 			transaction_types tt
 			ON
 				ft.fk_transaction_type_id = tt.pk_transaction_type_id
+		LEFT JOIN
+			accounts a
+			ON
+				a.user_id = ft.fk_user_id
 		WHERE
 			ft.fk_user_id = $2 AND
-			tt.type = 'deposit';
+			tt.type = 'deposit' AND
+			a.active = true
 	`
 	err := db.QueryRow(sqlGetUserBalance, user_id, user_id).Scan(&balance)
 	new_balance := []string{string(balance)}
