@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -33,10 +32,10 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 	if queryErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", queryErr.Error()))
+		json.NewEncoder(w).Encode(utils.Response("error", queryErr.Error(), nil))
 	} else {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", ""))
+		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 	}
 }
 
@@ -77,7 +76,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		// If not, rollback and return error
 		tx.Rollback()
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active"))
+		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
 		return
 	} else {
 		errorFound = false
@@ -113,7 +112,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		errorFound = true
 		tx.Rollback()
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 		return
 	} else {
 		errorFound = false
@@ -122,7 +121,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 
 	// Insert fiat_transations_assoc record
 	sqlInsertFiatTransactionAssoc := `
-		INSERT INTO fiat_transations_assoc (
+		INSERT INTO fiat_transactions_assoc (
 			pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id
 		) VALUES
 			($1, $2, $3)
@@ -138,7 +137,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		errorFound = true
 		tx.Rollback()
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 		return
 	} else {
 		errorFound = false
@@ -151,7 +150,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		errorFound = true
 		tx.Rollback()
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 		return
 	} else {
 		errorFound = false
@@ -159,7 +158,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 
 	if !errorFound {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", ""))
+		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 	}
 }
 
@@ -167,43 +166,47 @@ func walletBalance(w http.ResponseWriter, r *http.Request) {
 	db := database.CreateConnection()
 	defer db.Close()
 
-	var account_list []models.Accounts
+	vars := mux.Vars(r)
+	user_id := vars["user_id"]
 
-	sqlStatement := `SELECT * FROM accounts`
-	rows, err := db.Query(sqlStatement)
+	// fmt.Println("user_id", user_id)
+
+	var balance []uint8
+	sqlGetUserBalance := `
+		SELECT
+			coalesce(SUM(ft.amount), 0) + (
+			SELECT
+				coalesce(SUM(ft.amount), 0) as balance
+			FROM
+				fiat_transactions ft
+			INNER JOIN
+				transaction_types tt
+				ON
+					ft.fk_transaction_type_id = tt.pk_transaction_type_id
+			WHERE
+				ft.fk_user_id = $1 AND
+				tt.type IN ('withdraw', 'buy', 'refund')
+			) as balance
+		FROM
+			fiat_transactions ft
+		INNER JOIN
+			transaction_types tt
+			ON
+				ft.fk_transaction_type_id = tt.pk_transaction_type_id
+		WHERE
+			ft.fk_user_id = $2 AND
+			tt.type = 'deposit';
+	`
+	err := db.QueryRow(sqlGetUserBalance, user_id, user_id).Scan(&balance)
+	new_balance := []string{string(balance)}
 
 	if err != nil {
-		log.Fatalf("Unable to execute the query. %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+	} else {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(utils.Response("success", "", new_balance))
 	}
-
-	defer rows.Close()
-
-	// iterate over the rows
-	for rows.Next() {
-		var accounts models.Accounts
-
-		// unmarshal the row object to accounts
-		err = rows.Scan(
-			&accounts.Pk_account_id,
-			&accounts.User_id,
-			&accounts.Type,
-			&accounts.Description,
-			&accounts.Active,
-			&accounts.Created_at,
-			&accounts.Updated_at,
-		)
-
-		if err != nil {
-			log.Fatalf("Unable to scan the row. %v", err)
-		}
-
-		account_list = append(account_list, accounts)
-
-		fmt.Println(accounts)
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(account_list)
 }
 
 func Router() *mux.Router {
