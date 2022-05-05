@@ -48,7 +48,7 @@ CREATE TABLE fiat_transactions (
 );
 CREATE TRIGGER update_table_modtime BEFORE UPDATE ON fiat_transactions FOR EACH ROW EXECUTE PROCEDURE on_update_trigger();
 
-CREATE TABLE fiat_transations_assoc (
+CREATE TABLE fiat_transactions_assoc (
 	pk_fiat_transations_assoc_id UUID DEFAULT uuid_generate_v4(),
 
 	pk_sender_fiat_transaction_id UUID NOT NULL REFERENCES fiat_transactions(pk_fiat_transaction_id),
