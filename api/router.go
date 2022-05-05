@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"api.stanible.com/wallet/database"
 	"api.stanible.com/wallet/models"
 	"api.stanible.com/wallet/utils"
@@ -67,36 +69,40 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 			active = true
 	`
 
-	// 	Check if sender and receiver addresses are both active
+	// Check if sender and receiver addresses are both active
 	var total_users int
 	tx.QueryRow(sqlGetUsers, transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id).Scan(&total_users)
-	fmt.Println("Total Users: ", total_users)
+
 	if total_users < 2 {
-		// 	If not, rollback and return error
+		// If not, rollback and return error
 		tx.Rollback()
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active"))
+		return
 	} else {
 		errorFound = false
 	}
 
-	// 	Insert fiat_transaction record
+	// Insert fiat_transaction record
 	sqlInsertFiatTransaction := `
 		INSERT INTO fiat_transactions (
-			fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount
+			pk_fiat_transaction_id, fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount
 		) VALUES
-			($1, $2, $3, $4),
-			($5, $6, $7, $8)
-		RETURNING pk_fiat_transaction_id
+			($1, $2, $3, $4, $5),
+			($6, $7, $8, $9, $10)
 	`
-	_, err = tx.Query(
+	pkSenderId := uuid.New()
+	pkReceiverId := uuid.New()
+	rows, err := tx.Query(
 		sqlInsertFiatTransaction,
 
+		pkSenderId,
 		transactionPayload.Sender_user_id,
 		transactionPayload.Transaction_type_id,
 		transactionPayload.Fiat_currency_id,
 		-transactionPayload.Amount,
 
+		pkReceiverId,
 		transactionPayload.Receiver_user_id,
 		transactionPayload.Transaction_type_id,
 		transactionPayload.Fiat_currency_id,
@@ -108,12 +114,37 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+		return
 	} else {
 		errorFound = false
+		rows.Close()
 	}
 
-	//  Insert fiat_transations_assoc record
-	// 	 	Rollback if error
+	// Insert fiat_transations_assoc record
+	sqlInsertFiatTransactionAssoc := `
+		INSERT INTO fiat_transations_assoc (
+			pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id
+		) VALUES
+			($1, $2, $3)
+	`
+	row, err := tx.Query(
+		sqlInsertFiatTransactionAssoc,
+		pkSenderId,
+		pkReceiverId,
+		transactionPayload.Ramp_tx_id,
+	)
+	if err != nil {
+		// Rollback if error
+		errorFound = true
+		tx.Rollback()
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+		return
+	} else {
+		errorFound = false
+		row.Close()
+	}
+
 	// Commit the change if all queries ran successfully
 	err = tx.Commit()
 	if err != nil {
@@ -121,6 +152,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+		return
 	} else {
 		errorFound = false
 	}
