@@ -36,10 +36,10 @@ type Fiat_ramp_logs struct {
 }
 
 type Transaction_payload struct {
-	Transaction_type string         `json:"transaction_type"`
-	Sender_user_id   string         `json:"sender_user_id"`
-	Receiver_user_id string         `json:"receiver_user_id"`
-	Fiat_currency    string         `json:"fiat_currency"`
-	Amount           string         `json:"amount"`
-	Ramp_tx_id       sql.NullString `json:"ramp_tx_id"`
+	Transaction_type_id string `json:"transaction_type_id"`
+	Sender_user_id      string `json:"sender_user_id"`
+	Receiver_user_id    string `json:"receiver_user_id"`
+	Fiat_currency_id    string `json:"fiat_currency_id"`
+	Amount              int32  `json:"amount"`
+	Ramp_tx_id          string `json:"ramp_tx_id"`
 }

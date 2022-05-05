@@ -70,6 +70,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 	// 	Check if sender and receiver addresses are both active
 	var total_users int
 	tx.QueryRow(sqlGetUsers, transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id).Scan(&total_users)
+	fmt.Println("Total Users: ", total_users)
 	if total_users < 2 {
 		// 	If not, rollback and return error
 		tx.Rollback()
@@ -84,29 +85,45 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO fiat_transactions (
 			fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount
 		) VALUES
-			(
-				'2681d82e-dd66-4357-96dc-ee5c7b7a6797',
-				'd3661d82-34a4-447f-88c6-806b90f2f176',
-				'cc2bd118-3d45-4837-8071-085d6fae47f0',
-				-100
-			),
-			(
-				'9aa8ed53-dc51-448c-82fe-5f017f1c18fb',
-				'd3661d82-34a4-447f-88c6-806b90f2f176',
-				'cc2bd118-3d45-4837-8071-085d6fae47f0',
-				100
-			)
+			($1, $2, $3, $4),
+			($5, $6, $7, $8)
 		RETURNING pk_fiat_transaction_id
 	`
-	_, err = tx.ExecContext(ctx, "INSERT INTO pets (name, species) VALUES ('Fido', 'dog'), ('Albert', 'cat')")
+	_, err = tx.Query(
+		sqlInsertFiatTransaction,
+
+		transactionPayload.Sender_user_id,
+		transactionPayload.Transaction_type_id,
+		transactionPayload.Fiat_currency_id,
+		-transactionPayload.Amount,
+
+		transactionPayload.Receiver_user_id,
+		transactionPayload.Transaction_type_id,
+		transactionPayload.Fiat_currency_id,
+		transactionPayload.Amount,
+	)
 	if err != nil {
+		// Rollback if error
+		errorFound = true
 		tx.Rollback()
-		return
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+	} else {
+		errorFound = false
 	}
+
+	//  Insert fiat_transations_assoc record
 	// 	 	Rollback if error
-	//  Insert fiat_ramp_logs record
-	// 	 	Rollback if error
-	//  Commit
+	// Commit the change if all queries ran successfully
+	err = tx.Commit()
+	if err != nil {
+		errorFound = true
+		tx.Rollback()
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error()))
+	} else {
+		errorFound = false
+	}
 
 	if !errorFound {
 		w.WriteHeader(http.StatusOK)

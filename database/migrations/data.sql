@@ -1,15 +1,15 @@
 INSERT INTO
-	transaction_types(type)
+	transaction_types(pk_transaction_type_id, type)
 VALUES
-	('deposit'),
-	('withdraw'),
-	('buy'),
-	('refund');
+	('96c6b1c9-6c5a-493e-9645-64d2582a478b', 'deposit'),
+	('242934fd-b51b-448e-ba31-74189172f056', 'withdraw'),
+	('a457cb69-f670-4bf1-bf13-b99c82b0d170', 'buy'),
+	('5eecd051-f51a-40b7-aaa3-81afb44150cc', 'refund');
 
 INSERT INTO
-	fiat_currencies(name, symbol)
+	fiat_currencies(pk_fiat_currency_id, name, symbol)
 VALUES
-	('Philippine Peso', 'PHP');
+	('76eb713b-5bd1-4a54-968b-3897e88a50fb', 'Philippine Peso', 'PHP');
 
 INSERT INTO
 	accounts(user_id, type)
