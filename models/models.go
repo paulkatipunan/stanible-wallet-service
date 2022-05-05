@@ -23,18 +23,6 @@ type Fiat_transactions struct {
 	Updated_at string `json:"updated_at"`
 }
 
-type Fiat_ramp_logs struct {
-	Pk_fiat_ramp_logs_id   string `json:"pk_fiat_ramp_logs_id"`
-	Fk_fiat_transaction_id string `json:"fk_fiat_transaction_id"`
-	Ramp_tx_id             string `json:"ramp_tx_id"`
-
-	Description sql.NullString `json:"description"`
-
-	Active     bool   `json:"active"`
-	Created_at string `json:"created_at"`
-	Updated_at string `json:"updated_at"`
-}
-
 type Transaction_payload struct {
 	Transaction_type_id string `json:"transaction_type_id"`
 	Sender_user_id      string `json:"sender_user_id"`
