@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -27,6 +28,8 @@ func CreateConnection() *sql.DB {
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println("Database connection successful!")
 
 	return db
 }
