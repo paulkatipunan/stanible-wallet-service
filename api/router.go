@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"api.stanible.com/wallet/database"
 	"api.stanible.com/wallet/models"
@@ -61,7 +62,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 	sqlGetTransactionType := `SELECT type as type_name FROM transaction_types WHERE pk_transaction_type_id=$1`
 	db.QueryRow(sqlGetTransactionType, transactionPayload.Transaction_type_id).Scan(&tx_type)
 
-	user_balance_owner := transactionPayload.Receiver_user_id
+	user_balance_owner := transactionPayload.Sender_user_id
 
 	// GET BALANCE
 	var balance []uint8
@@ -102,7 +103,7 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 	`
 	db.QueryRow(sqlGetUserBalance, user_balance_owner, user_balance_owner).Scan(&balance)
 
-	bal, err := strconv.Atoi(string(balance))
+	bal, err := strconv.Atoi(strings.Split(string(balance), ".")[0])
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -111,9 +112,16 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("TX TYPE: ", tx_type)
+	fmt.Println("Amount: ", transactionPayload.Amount)
 	fmt.Println("BALANCE: ", bal)
 
 	if tx_type == "buy" && bal <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Insuffucient balance", nil))
+		return
+	}
+
+	if tx_type == "buy" && transactionPayload.Amount > int32(bal) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Insuffucient balance", nil))
 		return
