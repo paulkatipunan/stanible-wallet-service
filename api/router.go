@@ -3,14 +3,15 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-
-	"github.com/google/uuid"
+	"strconv"
 
 	"api.stanible.com/wallet/database"
 	"api.stanible.com/wallet/models"
 	"api.stanible.com/wallet/utils"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -55,6 +56,70 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
+	// INDENTIFY TX TYPE to GET THE USER BALANCE
+	var tx_type string
+	sqlGetTransactionType := `SELECT type as type_name FROM transaction_types WHERE pk_transaction_type_id=$1`
+	db.QueryRow(sqlGetTransactionType, transactionPayload.Transaction_type_id).Scan(&tx_type)
+
+	user_balance_owner := transactionPayload.Receiver_user_id
+
+	// GET BALANCE
+	var balance []uint8
+	sqlGetUserBalance := `
+		SELECT
+			coalesce(SUM(ft.amount), 0) + (
+			SELECT
+				coalesce(SUM(ft.amount), 0) as balance
+			FROM
+				fiat_transactions ft
+			INNER JOIN
+				transaction_types tt
+				ON
+					ft.fk_transaction_type_id = tt.pk_transaction_type_id
+			LEFT JOIN
+				accounts a
+				ON
+					a.user_id = ft.fk_user_id
+			WHERE
+				ft.fk_user_id = $1 AND
+				tt.type IN ('withdraw', 'buy', 'refund') AND
+				a.active = true
+			) as balance
+		FROM
+			fiat_transactions ft
+		INNER JOIN
+			transaction_types tt
+			ON
+				ft.fk_transaction_type_id = tt.pk_transaction_type_id
+		LEFT JOIN
+			accounts a
+			ON
+				a.user_id = ft.fk_user_id
+		WHERE
+			ft.fk_user_id = $2 AND
+			tt.type = 'deposit' AND
+			a.active = true
+	`
+	db.QueryRow(sqlGetUserBalance, user_balance_owner, user_balance_owner).Scan(&balance)
+
+	bal, err := strconv.Atoi(string(balance))
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		return
+	}
+
+	fmt.Println("TX TYPE: ", tx_type)
+	fmt.Println("BALANCE: ", bal)
+
+	if tx_type == "buy" && bal <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Insuffucient balance", nil))
+		return
+	}
+
+	// INSERT TX
 	sqlGetUsers := `
 		SELECT
 			COUNT(*) as total_users
@@ -160,6 +225,8 @@ func fiatTransaction(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 	}
+
+	// json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 }
 
 func walletBalance(w http.ResponseWriter, r *http.Request) {
