@@ -31,3 +31,8 @@ type Transaction_payload struct {
 	Amount              int32  `json:"amount"`
 	Ramp_tx_id          string `json:"ramp_tx_id"`
 }
+
+type Transaction_types struct {
+	Pk_transaction_type_id string `json:"pk_transaction_type_id"`
+	Type_name              string `json:"type_name"`
+}

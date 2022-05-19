@@ -1,8 +1,10 @@
 CREATE TABLE accounts (
 	pk_account_id UUID DEFAULT uuid_generate_v4(),
+
 	user_id UUID UNIQUE NOT NULL,
 	type user_type NOT NULL,
 	description VARCHAR,
+	
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -12,8 +14,10 @@ CREATE TRIGGER update_table_modtime BEFORE UPDATE ON accounts FOR EACH ROW EXECU
 
 CREATE TABLE transaction_types (
 	pk_transaction_type_id UUID DEFAULT uuid_generate_v4(),
-	type tx_type NOT NULL,
+
+	type tx_type UNIQUE NOT NULL,
 	description VARCHAR,
+
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -23,8 +27,10 @@ CREATE TRIGGER update_table_modtime BEFORE UPDATE ON transaction_types FOR EACH 
 
 CREATE TABLE fiat_currencies (
 	pk_fiat_currency_id UUID DEFAULT uuid_generate_v4(),
+
 	name VARCHAR NOT NULL,
 	symbol VARCHAR NOT NULL,
+	
 	description VARCHAR,
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
