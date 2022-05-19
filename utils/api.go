@@ -16,6 +16,12 @@ type TxTypeResponse struct {
 	Data    []models.Transaction_types `json:"data"`
 }
 
+type FiatCurrencyResponse struct {
+	Status  string                   `json:"status"`
+	Message string                   `json:"message"`
+	Data    []models.Fiat_currencies `json:"data"`
+}
+
 func Response(status string, message string, data []string) StdResponse {
 	return StdResponse{
 		Status:  status,
@@ -26,6 +32,14 @@ func Response(status string, message string, data []string) StdResponse {
 
 func TxType(status string, message string, data []models.Transaction_types) TxTypeResponse {
 	return TxTypeResponse{
+		Status:  status,
+		Message: message,
+		Data:    data,
+	}
+}
+
+func FiatCurrencies(status string, message string, data []models.Fiat_currencies) FiatCurrencyResponse {
+	return FiatCurrencyResponse{
 		Status:  status,
 		Message: message,
 		Data:    data,

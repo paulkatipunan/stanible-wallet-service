@@ -36,3 +36,9 @@ type Transaction_types struct {
 	Pk_transaction_type_id string `json:"pk_transaction_type_id"`
 	Type_name              string `json:"type_name"`
 }
+
+type Fiat_currencies struct {
+	Pk_fiat_currency_id string `json:"pk_fiat_currency_id"`
+	Name                string `json:"name"`
+	Symbol              string `json:"symbol"`
+}

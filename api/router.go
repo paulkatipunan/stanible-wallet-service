@@ -256,6 +256,44 @@ func transactionTypes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func fiatCurrencies(w http.ResponseWriter, r *http.Request) {
+	db := database.CreateConnection()
+	defer db.Close()
+
+	sqlGetFiatCurrencies := `SELECT pk_fiat_currency_id, name, symbol FROM fiat_currencies`
+	rows, err := db.Query(sqlGetFiatCurrencies)
+
+	var fiat_currencies_list []models.Fiat_currencies
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		return
+	} else {
+		defer rows.Close()
+		// iterate over the rows
+		for rows.Next() {
+			var fiat_currencies models.Fiat_currencies
+
+			// unmarshal the row object to accounts
+			err = rows.Scan(
+				&fiat_currencies.Pk_fiat_currency_id,
+				&fiat_currencies.Name,
+				&fiat_currencies.Symbol,
+			)
+
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+				return
+			}
+
+			fiat_currencies_list = append(fiat_currencies_list, fiat_currencies)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(utils.FiatCurrencies("success", "", fiat_currencies_list))
+	}
+}
+
 func Router() *mux.Router {
 	routers := mux.NewRouter().StrictSlash(true)
 	routers.Use(commonMiddleware)
@@ -264,6 +302,7 @@ func Router() *mux.Router {
 	routers.HandleFunc("/wallet/fiat", fiatTransaction).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/balance/{user_id}", walletBalance).Methods("GET")
 	routers.HandleFunc("/wallet/transaction_types", transactionTypes).Methods("GET")
+	routers.HandleFunc("/wallet/fiat_currencies", fiatCurrencies).Methods("GET")
 
 	return routers
 }
