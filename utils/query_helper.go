@@ -2,6 +2,8 @@ package utils
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"api.stanible.com/wallet/database"
 	"api.stanible.com/wallet/models"
@@ -116,4 +118,55 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) 
 	}
 
 	return nil
+}
+
+func AccountBalance(userId string) (int32, error) {
+	db := database.CreateConnection()
+	defer db.Close()
+
+	var balance []uint8
+	sql := `
+		SELECT
+			coalesce(SUM(ft.amount), 0) + (
+			SELECT
+				coalesce(SUM(ft.amount), 0) as balance
+			FROM
+				fiat_transactions ft
+			INNER JOIN
+				transaction_types tt
+				ON
+					ft.fk_transaction_type_id = tt.pk_transaction_type_id
+			LEFT JOIN
+				accounts a
+				ON
+					a.user_id = ft.fk_user_id
+			WHERE
+				ft.fk_user_id = $1 AND
+				tt.type IN ('withdraw', 'buy') AND
+				a.active = true
+			) as balance
+		FROM
+			fiat_transactions ft
+		INNER JOIN
+			transaction_types tt
+			ON
+				ft.fk_transaction_type_id = tt.pk_transaction_type_id
+		LEFT JOIN
+			accounts a
+			ON
+				a.user_id = ft.fk_user_id
+		WHERE
+			ft.fk_user_id = $2 AND
+			tt.type IN ('deposit', 'refund') AND
+			a.active = true
+	`
+	// NOTE:
+	// WHERE
+	// 		tt.type IN ('deposit', 'refund') AND
+	// 		ft.status = 'success'
+	db.QueryRow(sql, userId, userId).Scan(&balance)
+
+	bal, err := strconv.Atoi(strings.Split(string(balance), ".")[0])
+
+	return int32(bal), err
 }

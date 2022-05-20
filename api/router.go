@@ -42,6 +42,19 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	var transactionPayload models.Transaction_payload
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
+	// Check balance cap
+	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		return
+	}
+	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
+		return
+	}
+
 	// Get transaction type and transaction_type_id
 	pk_transaction_type_id, _ := utils.GetTransactionType(enums.DEPOSIT)
 	transactionPayload.Transaction_type_id = pk_transaction_type_id
