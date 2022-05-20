@@ -43,7 +43,7 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
 	// Get transaction type and transaction_type_id
-	_, pk_transaction_type_id := utils.GetTransactionType(enums.DEPOSIT)
+	pk_transaction_type_id, _ := utils.GetTransactionType(enums.DEPOSIT)
 	transactionPayload.Transaction_type_id = pk_transaction_type_id
 
 	// Check if sender and receiver addresses are both active
