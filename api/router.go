@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"api.stanible.com/wallet/database"
@@ -97,7 +98,7 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	transactionPayload.Transaction_type_id = pk_transaction_type_id
 
 	// Insert fiat_transaction and fiat_transaction_assoc records
-	txResponse := utils.InsertFiatTransactionRecord(transactionPayload)
+	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["SUCCESS"])
 
 	if txResponse != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -142,7 +143,7 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert fiat_transaction and fiat_transaction_assoc records
-	txResponse := utils.InsertFiatTransactionRecord(transactionPayload)
+	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["SUCCESS"])
 
 	if txResponse != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -185,7 +186,7 @@ func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	sender_type := row[0]
 	receiver_type := row[1]
-	if enums.SystemUserTypes[strings.ToUpper(sender_type)] == "" ||
+	if sender_type != enums.SystemUserTypes["TREASURY"] ||
 		enums.CustomerUserTypes[strings.ToUpper(receiver_type)] == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
@@ -201,6 +202,16 @@ func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 		return
 	}
+
+	// NOTE:
+	// Balance 0 should be allowed as long as there was a deposit and buy made before,
+	// and refund should be less than or equal to the buy amount
+	if bal == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Insufficient balance", nil))
+		return
+	}
+
 	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
@@ -208,11 +219,19 @@ func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get transaction type and transaction_type_id
-	pk_transaction_type_id, _ := utils.GetTransactionType(enums.DEPOSIT)
+	pk_transaction_type_id, _ := utils.GetTransactionType(enums.REFUND)
 	transactionPayload.Transaction_type_id = pk_transaction_type_id
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+	// Insert fiat_transaction and fiat_transaction_assoc records
+	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["PENDING"])
+
+	if txResponse != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", txResponse.Error(), nil))
+	} else {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+	}
 }
 
 func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
@@ -226,57 +245,17 @@ func fiatWithdraw(w http.ResponseWriter, r *http.Request) {
 }
 
 func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
-	db := database.CreateConnection()
-	defer db.Close()
-
 	vars := mux.Vars(r)
 	user_id := vars["user_id"]
 
-	var balance []uint8
-	sqlGetUserBalance := `
-		SELECT
-			coalesce(SUM(ft.amount), 0) + (
-			SELECT
-				coalesce(SUM(ft.amount), 0) as balance
-			FROM
-				fiat_transactions ft
-			INNER JOIN
-				transaction_types tt
-				ON
-					ft.fk_transaction_type_id = tt.pk_transaction_type_id
-			LEFT JOIN
-				accounts a
-				ON
-					a.user_id = ft.fk_user_id
-			WHERE
-				ft.fk_user_id = $1 AND
-				tt.type IN ('withdraw', 'buy', 'refund') AND
-				a.active = true
-			) as balance
-		FROM
-			fiat_transactions ft
-		INNER JOIN
-			transaction_types tt
-			ON
-				ft.fk_transaction_type_id = tt.pk_transaction_type_id
-		LEFT JOIN
-			accounts a
-			ON
-				a.user_id = ft.fk_user_id
-		WHERE
-			ft.fk_user_id = $2 AND
-			tt.type = 'deposit' AND
-			a.active = true
-	`
-	err := db.QueryRow(sqlGetUserBalance, user_id, user_id).Scan(&balance)
-	new_balance := []string{string(balance)}
+	bal, err := utils.AccountBalance(user_id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 	} else {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", "", new_balance))
+		json.NewEncoder(w).Encode(utils.Response("success", "", []string{strconv.Itoa(int(bal))}))
 	}
 }
 
@@ -286,7 +265,6 @@ func transactionTypes(w http.ResponseWriter, r *http.Request) {
 
 	sqlGetTransactionTypes := `SELECT pk_transaction_type_id, type as type_name FROM transaction_types`
 	rows, err := db.Query(sqlGetTransactionTypes)
-	defer rows.Close()
 
 	var tx_types_list []models.Transaction_types
 	if err != nil {
@@ -294,6 +272,7 @@ func transactionTypes(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 		return
 	} else {
+		defer rows.Close()
 		// iterate over the rows
 		for rows.Next() {
 			var tx_types models.Transaction_types

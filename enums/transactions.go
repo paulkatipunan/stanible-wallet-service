@@ -6,3 +6,9 @@ const (
 	REFUND   = "refund"
 	WITHDRAW = "withdraw"
 )
+
+var TX_STATUS = map[string]string{
+	"PENDING": "pending",
+	"SUCCESS": "success",
+	"FAILED":  "failed",
+}

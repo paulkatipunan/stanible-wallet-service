@@ -84,7 +84,7 @@ func UserTypes(sender_user_id string, receiver_user_id string) ([]string, error)
 	}
 }
 
-func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) error {
+func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, status string) error {
 	// Begin tx
 	ctx := context.Background()
 	db := database.CreateConnection()
@@ -95,13 +95,15 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) 
 		return err
 	}
 
+	status_value := status
+
 	// Insert fiat_transaction record
 	sqlInsertFiatTransaction := `
 		INSERT INTO fiat_transactions (
 			pk_fiat_transaction_id, fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount, status
 		) VALUES
-			($1, $2, $3, $4, $5, 'success'),
-			($6, $7, $8, $9, $10, 'success')
+			($1, $2, $3, $4, $5, $6),
+			($7, $8, $9, $10, $11, $12)
 	`
 	pkSenderId := uuid.New()
 	pkReceiverId := uuid.New()
@@ -113,12 +115,14 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) 
 		transactionPayload.Transaction_type_id,
 		transactionPayload.Fiat_currency_id,
 		-transactionPayload.Amount,
+		status_value,
 
 		pkReceiverId,
 		transactionPayload.Receiver_user_id,
 		transactionPayload.Transaction_type_id,
 		transactionPayload.Fiat_currency_id,
 		transactionPayload.Amount,
+		status_value,
 	)
 	if err != nil {
 		// Rollback if error
@@ -133,13 +137,14 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) 
 		INSERT INTO fiat_transactions_assoc (
 			pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id, status
 		) VALUES
-			($1, $2, $3, 'success')
+			($1, $2, $3, $4)
 	`
 	row, err := tx.Query(
 		sqlInsertFiatTransactionAssoc,
 		pkSenderId,
 		pkReceiverId,
 		transactionPayload.Ramp_tx_id,
+		status_value,
 	)
 	if err != nil {
 		// Rollback if error
@@ -182,7 +187,8 @@ func AccountBalance(userId string) (int32, error) {
 			WHERE
 				ft.fk_user_id = $1 AND
 				tt.type IN ('withdraw', 'buy') AND
-				a.active = true
+				a.active = true AND
+				ft.status = 'success'
 			) as balance
 		FROM
 			fiat_transactions ft
@@ -197,12 +203,9 @@ func AccountBalance(userId string) (int32, error) {
 		WHERE
 			ft.fk_user_id = $2 AND
 			tt.type IN ('deposit', 'refund') AND
-			a.active = true
+			a.active = true AND
+			ft.status = 'success'
 	`
-	// NOTE:
-	// WHERE
-	// 		tt.type IN ('deposit', 'refund') AND
-	// 		ft.status = 'success'
 	db.QueryRow(sql, userId, userId).Scan(&balance)
 
 	bal, err := strconv.Atoi(strings.Split(string(balance), ".")[0])
