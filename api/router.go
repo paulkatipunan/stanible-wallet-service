@@ -84,7 +84,8 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	}
 	sender_type := row[0]
 	receiver_type := row[1]
-	if enums.PaymentTypes[strings.ToUpper(sender_type)] == "" || enums.NonPaymentUserTypes[strings.ToUpper(receiver_type)] == "" {
+	if enums.PaymentUserTypes[strings.ToUpper(sender_type)] == "" ||
+		enums.NonPaymentUserTypes()[strings.ToUpper(receiver_type)] == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
 		return
@@ -147,14 +148,22 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func walletBalance(w http.ResponseWriter, r *http.Request) {
+func fiatRefund(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+}
+
+func fiatWithdraw(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+}
+
+func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
 	db := database.CreateConnection()
 	defer db.Close()
 
 	vars := mux.Vars(r)
 	user_id := vars["user_id"]
-
-	// fmt.Println("user_id", user_id)
 
 	var balance []uint8
 	sqlGetUserBalance := `
@@ -286,7 +295,9 @@ func Router() *mux.Router {
 	routers.HandleFunc("/wallet/register", register).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/deposit", fiatDeposit).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/buy", fiatBuy).Methods("POST")
-	routers.HandleFunc("/wallet/fiat/balance/{user_id}", walletBalance).Methods("GET")
+	routers.HandleFunc("/wallet/fiat/refund", fiatRefund).Methods("POST")
+	routers.HandleFunc("/wallet/fiat/withdraw", fiatWithdraw).Methods("POST")
+	routers.HandleFunc("/wallet/fiat/balance/{user_id}", fiatWalletBalance).Methods("GET")
 
 	routers.HandleFunc("/wallet/transaction_types", transactionTypes).Methods("GET")
 	routers.HandleFunc("/wallet/fiat_currencies", fiatCurrencies).Methods("GET")
