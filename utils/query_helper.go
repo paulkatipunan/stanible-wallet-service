@@ -45,6 +45,45 @@ func ActiveSenderReceiver(sender_user_id string, receiver_user_id string) int {
 	return total_users
 }
 
+func UserTypes(sender_user_id string, receiver_user_id string) ([]string, error) {
+	db := database.CreateConnection()
+	defer db.Close()
+
+	// Get user types
+	sql := `
+		SELECT (
+			SELECT
+				type
+			FROM
+				accounts
+			WHERE
+				user_id = $1 AND
+				active = true
+			) as sender_type, (
+			SELECT
+				type
+			FROM
+				accounts
+			WHERE
+				user_id = $2 AND
+				active = true
+			) as receiver_type
+	`
+	rows, err := db.Query(sql, sender_user_id, receiver_user_id)
+
+	if err != nil {
+		return []string{}, err
+	} else {
+		defer rows.Close()
+		var sender_type, receiver_type string
+
+		for rows.Next() {
+			rows.Scan(&sender_type, &receiver_type)
+		}
+		return []string{sender_type, receiver_type}, nil
+	}
+}
+
 func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) error {
 	// Begin tx
 	ctx := context.Background()

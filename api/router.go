@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"api.stanible.com/wallet/database"
 	"api.stanible.com/wallet/enums"
@@ -42,6 +43,12 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	var transactionPayload models.Transaction_payload
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
+	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
+		return
+	}
+
 	// Check balance cap
 	// Balance is from the receiving account
 	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
@@ -65,6 +72,21 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	if total_users < 2 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
+		return
+	}
+
+	// Validate user types
+	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		return
+	}
+	sender_type := row[0]
+	receiver_type := row[1]
+	if enums.PaymentTypes[strings.ToUpper(sender_type)] == "" || enums.NonPaymentUserTypes[strings.ToUpper(receiver_type)] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
 		return
 	}
 
@@ -188,6 +210,7 @@ func transactionTypes(w http.ResponseWriter, r *http.Request) {
 
 	sqlGetTransactionTypes := `SELECT pk_transaction_type_id, type as type_name FROM transaction_types`
 	rows, err := db.Query(sqlGetTransactionTypes)
+	defer rows.Close()
 
 	var tx_types_list []models.Transaction_types
 	if err != nil {
@@ -195,7 +218,6 @@ func transactionTypes(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 		return
 	} else {
-		defer rows.Close()
 		// iterate over the rows
 		for rows.Next() {
 			var tx_types models.Transaction_types
@@ -262,7 +284,6 @@ func Router() *mux.Router {
 	routers.Use(commonMiddleware)
 
 	routers.HandleFunc("/wallet/register", register).Methods("POST")
-
 	routers.HandleFunc("/wallet/fiat/deposit", fiatDeposit).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/buy", fiatBuy).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/balance/{user_id}", walletBalance).Methods("GET")
