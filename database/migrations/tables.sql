@@ -46,6 +46,7 @@ CREATE TABLE fiat_transactions (
 	fk_fiat_currency_id UUID NOT NULL REFERENCES fiat_currencies(pk_fiat_currency_id),
 	
 	amount NUMERIC(12, 2) DEFAULT 0 NOT NULL,
+	status tx_status NOT NULL DEFAULT 'pending',
 	
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -62,6 +63,8 @@ CREATE TABLE fiat_transactions_assoc (
 
 	ramp_tx_id VARCHAR UNIQUE NOT NULL,
 	description VARCHAR,
+	status tx_status NOT NULL DEFAULT 'pending',
+
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,

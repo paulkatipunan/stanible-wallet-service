@@ -98,10 +98,10 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) 
 	// Insert fiat_transaction record
 	sqlInsertFiatTransaction := `
 		INSERT INTO fiat_transactions (
-			pk_fiat_transaction_id, fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount
+			pk_fiat_transaction_id, fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount, status
 		) VALUES
-			($1, $2, $3, $4, $5),
-			($6, $7, $8, $9, $10)
+			($1, $2, $3, $4, $5, 'success'),
+			($6, $7, $8, $9, $10, 'success')
 	`
 	pkSenderId := uuid.New()
 	pkReceiverId := uuid.New()
@@ -131,9 +131,9 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload) 
 	// Insert fiat_transations_assoc record
 	sqlInsertFiatTransactionAssoc := `
 		INSERT INTO fiat_transactions_assoc (
-			pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id
+			pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id, status
 		) VALUES
-			($1, $2, $3)
+			($1, $2, $3, 'success')
 	`
 	row, err := tx.Query(
 		sqlInsertFiatTransactionAssoc,
