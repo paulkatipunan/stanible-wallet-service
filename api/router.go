@@ -43,12 +43,41 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	var transactionPayload models.Transaction_payload
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
+	// Validation#01
+	// Sender and receiver cannot be the same
 	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
 		return
 	}
 
+	// Validation#02
+	// Check if sender and receiver addresses are both active
+	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+	if total_users < 2 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
+		return
+	}
+
+	// Validation#03
+	// Validate user types
+	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		return
+	}
+	sender_type := row[0]
+	receiver_type := row[1]
+	if enums.PaymentUserTypes[strings.ToUpper(sender_type)] == "" ||
+		enums.NonPaymentUserTypes()[strings.ToUpper(receiver_type)] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
+		return
+	}
+
+	// Validation#04
 	// Check balance cap
 	// Balance is from the receiving account
 	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
@@ -66,30 +95,6 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	// Get transaction type and transaction_type_id
 	pk_transaction_type_id, _ := utils.GetTransactionType(enums.DEPOSIT)
 	transactionPayload.Transaction_type_id = pk_transaction_type_id
-
-	// Check if sender and receiver addresses are both active
-	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if total_users < 2 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
-		return
-	}
-
-	// Validate user types
-	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
-		return
-	}
-	sender_type := row[0]
-	receiver_type := row[1]
-	if enums.PaymentUserTypes[strings.ToUpper(sender_type)] == "" ||
-		enums.NonPaymentUserTypes()[strings.ToUpper(receiver_type)] == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
-		return
-	}
 
 	// Insert fiat_transaction and fiat_transaction_assoc records
 	txResponse := utils.InsertFiatTransactionRecord(transactionPayload)
@@ -148,7 +153,69 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func fiatRefund(w http.ResponseWriter, r *http.Request) {
+func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
+	// Get payloads and assign fiat_transaction model
+	var transactionPayload models.Transaction_payload
+	json.NewDecoder(r.Body).Decode(&transactionPayload)
+
+	// Validation#01
+	// Sender and receiver cannot be the same
+	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
+		return
+	}
+
+	// Validation#02
+	// Check if sender and receiver addresses are both active
+	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+	if total_users < 2 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
+		return
+	}
+
+	// Validation#03
+	// Validate user types
+	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		return
+	}
+	sender_type := row[0]
+	receiver_type := row[1]
+	if enums.SystemUserTypes[strings.ToUpper(sender_type)] == "" ||
+		enums.CustomerUserTypes[strings.ToUpper(receiver_type)] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
+		return
+	}
+
+	// Validation#04
+	// Check balance cap
+	// Balance is from the receiving account
+	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		return
+	}
+	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
+		return
+	}
+
+	// Get transaction type and transaction_type_id
+	pk_transaction_type_id, _ := utils.GetTransactionType(enums.DEPOSIT)
+	transactionPayload.Transaction_type_id = pk_transaction_type_id
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+}
+
+func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 }
@@ -295,7 +362,8 @@ func Router() *mux.Router {
 	routers.HandleFunc("/wallet/register", register).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/deposit", fiatDeposit).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/buy", fiatBuy).Methods("POST")
-	routers.HandleFunc("/wallet/fiat/refund", fiatRefund).Methods("POST")
+	routers.HandleFunc("/wallet/fiat/refund/request", fiatRefundRequest).Methods("POST")
+	routers.HandleFunc("/wallet/fiat/refund/approve", fiatRefundApprove).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/withdraw", fiatWithdraw).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/balance/{user_id}", fiatWalletBalance).Methods("GET")
 
