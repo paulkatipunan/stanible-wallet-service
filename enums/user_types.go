@@ -17,6 +17,13 @@ func NonPaymentUserTypes() map[string]string {
 	return mergeUserTypes(SystemUserTypes, CustomerUserTypes)
 }
 
+func WithdrawalUserTypes() map[string]string {
+	return map[string]string{
+		"TREASURY": SystemUserTypes["TREASURY"],
+		"CREATOR":  CustomerUserTypes["CREATOR"],
+	}
+}
+
 var SystemUserTypes = map[string]string{
 	"TREASURY": "treasury",
 	"ADMIN":    "admin",
