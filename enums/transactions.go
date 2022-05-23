@@ -8,7 +8,8 @@ const (
 )
 
 var TX_STATUS = map[string]string{
-	"PENDING": "pending",
-	"SUCCESS": "success",
-	"FAILED":  "failed",
+	"PENDING":   "pending",
+	"SUCCESS":   "success",
+	"FAILED":    "failed",
+	"CANCELLED": "cancelled",
 }

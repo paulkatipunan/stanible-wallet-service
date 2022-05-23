@@ -5,3 +5,4 @@ ALTER TYPE user_type ADD VALUE 'creator' AFTER 'admin';
 CREATE TYPE tx_type AS ENUM ('deposit', 'withdraw', 'buy', 'refund');
 
 CREATE TYPE tx_status AS ENUM ('pending', 'success', 'failed');
+ALTER TYPE tx_status ADD VALUE 'cancelled' AFTER 'success';

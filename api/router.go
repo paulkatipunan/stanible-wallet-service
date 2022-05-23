@@ -236,82 +236,15 @@ func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
 
 func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
 	// Get payloads and assign fiat_transaction model
-	var transactionPayload models.Transaction_payload
+	var transactionPayload models.RefundApprove_payload
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
-	// Validation#01
-	// Sender and receiver cannot be the same
-	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
-		return
-	}
+	// Validate status payload
 
-	// Validation#02
-	// Check if sender and receiver addresses are both active
-	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if total_users < 2 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
-		return
-	}
+	utils.RefundApprove(transactionPayload)
 
-	// Validation#03
-	// Validate user types
-	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
-		return
-	}
-	sender_type := row[0]
-	receiver_type := row[1]
-	if sender_type != enums.SystemUserTypes["TREASURY"] ||
-		enums.CustomerUserTypes[strings.ToUpper(receiver_type)] == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
-		return
-	}
-
-	// Validation#04
-	// Check balance cap
-	// Balance is from the receiving account
-	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
-		return
-	}
-
-	// NOTE:
-	// Balance 0 should be allowed as long as there was a deposit and buy made before,
-	// and refund should be less than or equal to the buy amount
-	if bal == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Insufficient balance", nil))
-		return
-	}
-
-	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
-		return
-	}
-
-	// Get transaction type and transaction_type_id
-	pk_transaction_type_id, _ := utils.GetTransactionType(enums.REFUND)
-	transactionPayload.Transaction_type_id = pk_transaction_type_id
-
-	// Insert fiat_transaction and fiat_transaction_assoc records
-	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["PENDING"])
-
-	if txResponse != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", txResponse.Error(), nil))
-	} else {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
-	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 }
 
 func fiatRefundList(w http.ResponseWriter, r *http.Request) {

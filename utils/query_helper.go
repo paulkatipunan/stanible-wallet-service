@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"api.stanible.com/wallet/database"
+	"api.stanible.com/wallet/enums"
 	"api.stanible.com/wallet/models"
 	"github.com/google/uuid"
 )
@@ -266,4 +267,64 @@ func RefundRequestList() []models.RefundRequestListModel {
 	}
 
 	return refund_request_list
+}
+
+func RefundApprove(transactionPayload models.RefundApprove_payload) error {
+	// Begin tx
+	ctx := context.Background()
+	db := database.CreateConnection()
+	tx, err := db.BeginTx(ctx, nil)
+	defer db.Close()
+
+	if err != nil {
+		return err
+	}
+
+	var status_value string
+
+	if transactionPayload.Status == "approve" {
+		status_value = enums.TX_STATUS["SUCCESS"]
+	} else if transactionPayload.Status == "cancel" {
+		status_value = enums.TX_STATUS["CANCELLED"]
+	} else {
+		status_value = enums.TX_STATUS["FAILED"]
+	}
+
+	// Update fiat_transactions_assoc record
+	sqlUpdateFiatTransactionAssoc := `
+		UPDATE
+			fiat_transactions_assoc
+		SET
+			status=$1
+		WHERE
+			pk_fiat_transations_assoc_id=$2
+		RETURNING
+			pk_sender_fiat_transaction_id,
+			pk_receiver_fiat_transaction_id;
+	`
+	var pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id string
+	tx.QueryRow(sqlUpdateFiatTransactionAssoc, status_value, transactionPayload.Refund_id).Scan(&pk_sender_fiat_transaction_id, &pk_receiver_fiat_transaction_id)
+
+	// Update fiat_transactions record
+	sqlUpdateFiatTransaction := `
+		UPDATE
+			fiat_transactions
+		SET
+			status=$1
+		WHERE
+			pk_fiat_transaction_id IN (
+				$2,
+				$3
+			)
+	`
+	tx.QueryRow(sqlUpdateFiatTransaction, status_value, pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id)
+
+	// Commit the change if all queries ran successfully
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return nil
 }
