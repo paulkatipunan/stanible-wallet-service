@@ -42,3 +42,12 @@ type Fiat_currencies struct {
 	Name                string `json:"name"`
 	Symbol              string `json:"symbol"`
 }
+
+type RefundRequestListModel struct {
+	Pk_fiat_transations_assoc_id string `json:"pk_fiat_transations_assoc_id"`
+	Fk_user_id                   string `json:"fk_user_id"`
+	Amount                       int32  `json:"amount"`
+	Type_name                    string `json:"type_name"`
+	Status                       string `json:"status"`
+	Created_at                   string `json:"created_at"`
+}

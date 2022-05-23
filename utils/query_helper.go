@@ -212,3 +212,58 @@ func AccountBalance(userId string) (int32, error) {
 
 	return int32(bal), err
 }
+
+func RefundRequestList() []models.RefundRequestListModel {
+	db := database.CreateConnection()
+	defer db.Close()
+
+	var refund_request_list []models.RefundRequestListModel
+
+	sql := `
+		SELECT
+			fta.pk_fiat_transations_assoc_id,
+			ft_receiver.fk_user_id,
+			CAST(ft_receiver.amount as Integer),
+			tt.type as type_name,
+			fta.status,
+			fta.created_at
+		FROM
+			fiat_transactions_assoc fta
+		LEFT JOIN
+			fiat_transactions ft_sender
+			ON
+				fta.pk_sender_fiat_transaction_id = ft_sender.pk_fiat_transaction_id
+		LEFT JOIN
+			fiat_transactions ft_receiver
+			ON
+				fta.pk_receiver_fiat_transaction_id = ft_receiver.pk_fiat_transaction_id
+		LEFT JOIN
+			transaction_types tt
+			ON
+				ft_sender.fk_transaction_type_id = tt.pk_transaction_type_id
+		WHERE
+			fta.status = 'pending' AND
+			ft_sender.status = 'pending' AND
+			tt.type = 'refund'
+	`
+	rows, _ := db.Query(sql)
+
+	defer rows.Close()
+	// iterate over the rows
+	for rows.Next() {
+		var refundRequest models.RefundRequestListModel
+
+		_ = rows.Scan(
+			&refundRequest.Pk_fiat_transations_assoc_id,
+			&refundRequest.Fk_user_id,
+			&refundRequest.Amount,
+			&refundRequest.Type_name,
+			&refundRequest.Status,
+			&refundRequest.Created_at,
+		)
+
+		refund_request_list = append(refund_request_list, refundRequest)
+	}
+
+	return refund_request_list
+}
