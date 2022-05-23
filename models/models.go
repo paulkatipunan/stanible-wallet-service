@@ -32,9 +32,9 @@ type Transaction_payload struct {
 	Ramp_tx_id          string `json:"ramp_tx_id"`
 }
 
-type RefundApprove_payload struct {
-	Refund_id string `json:"refund_id"`
-	Status    string `json:"status"`
+type RequestApprove_payload struct {
+	Request_id string `json:"request_id"`
+	Status     string `json:"status"`
 }
 
 type Transaction_types struct {

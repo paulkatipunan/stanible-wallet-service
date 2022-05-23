@@ -269,7 +269,7 @@ func RequestList(transaction_type string) []models.RequestListModel {
 	return request_list
 }
 
-func RefundApprove(transactionPayload models.RefundApprove_payload) error {
+func RequestApprove(transactionPayload models.RequestApprove_payload) error {
 	// Begin tx
 	ctx := context.Background()
 	db := database.CreateConnection()
@@ -303,7 +303,7 @@ func RefundApprove(transactionPayload models.RefundApprove_payload) error {
 			pk_receiver_fiat_transaction_id;
 	`
 	var pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id string
-	tx.QueryRow(sqlUpdateFiatTransactionAssoc, status_value, transactionPayload.Refund_id).Scan(&pk_sender_fiat_transaction_id, &pk_receiver_fiat_transaction_id)
+	tx.QueryRow(sqlUpdateFiatTransactionAssoc, status_value, transactionPayload.Request_id).Scan(&pk_sender_fiat_transaction_id, &pk_receiver_fiat_transaction_id)
 
 	// Update fiat_transactions record
 	sqlUpdateFiatTransaction := `

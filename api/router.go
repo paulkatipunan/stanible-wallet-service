@@ -206,11 +206,6 @@ func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
 	// NOTE:
 	// Balance 0 should be allowed as long as there was a deposit and buy made before,
 	// and refund should be less than or equal to the buy amount
-	// if bal == 0 {
-	// 	w.WriteHeader(http.StatusBadRequest)
-	// 	json.NewEncoder(w).Encode(utils.Response("error", "Insufficient balance", nil))
-	// 	return
-	// }
 
 	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
 		w.WriteHeader(http.StatusBadRequest)
@@ -236,7 +231,7 @@ func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
 
 func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
 	// Get payloads and assign fiat_transaction model
-	var transactionPayload models.RefundApprove_payload
+	var transactionPayload models.RequestApprove_payload
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
 	// Validate status payload
@@ -247,7 +242,7 @@ func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Approve refund
-	utils.RefundApprove(transactionPayload)
+	utils.RequestApprove(transactionPayload)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
@@ -328,6 +323,30 @@ func fiatWithdrawRequest(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 	}
+}
+
+func fiatWithdrawList(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.RequestListResponse("success", "", utils.RequestList(enums.WITHDRAW)))
+}
+
+func fiatWithdrawApprove(w http.ResponseWriter, r *http.Request) {
+	// Get payloads and assign fiat_transaction model
+	var transactionPayload models.RequestApprove_payload
+	json.NewDecoder(r.Body).Decode(&transactionPayload)
+
+	// Validate status payload
+	if enums.FE_TX_STATUS[strings.ToUpper(transactionPayload.Status)] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Invalid status", nil))
+		return
+	}
+
+	// Approve refund
+	utils.RequestApprove(transactionPayload)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 }
 
 func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
@@ -431,6 +450,8 @@ func Router() *mux.Router {
 	routers.HandleFunc("/wallet/fiat/refund/approve", fiatRefundApprove).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/refund/list", fiatRefundList).Methods("GET")
 	routers.HandleFunc("/wallet/fiat/withdraw/request", fiatWithdrawRequest).Methods("POST")
+	routers.HandleFunc("/wallet/fiat/withdraw/list", fiatWithdrawList).Methods("GET")
+	routers.HandleFunc("/wallet/fiat/withdraw/approve", fiatWithdrawApprove).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/balance/{user_id}", fiatWalletBalance).Methods("GET")
 
 	routers.HandleFunc("/wallet/transaction_types", transactionTypes).Methods("GET")
