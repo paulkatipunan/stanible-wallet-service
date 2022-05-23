@@ -11,6 +11,20 @@ import (
 	"github.com/google/uuid"
 )
 
+func UserUpdate(user_id string, type_name string) (string, error) {
+	db := database.CreateConnection()
+	defer db.Close()
+
+	sql := `
+		UPDATE accounts SET type=$1 WHERE user_id=$2 RETURNING user_id;
+	`
+
+	var returned_user_id string
+	err := db.QueryRow(sql, type_name, user_id).Scan(&returned_user_id)
+
+	return returned_user_id, err
+}
+
 func GetTransactionType(txType string) (string, string) {
 	db := database.CreateConnection()
 	defer db.Close()

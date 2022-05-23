@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,13 +13,14 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func register(w http.ResponseWriter, r *http.Request) {
+func userRegistration(w http.ResponseWriter, r *http.Request) {
 	var account models.Accounts
 
 	payloadErr := json.NewDecoder(r.Body).Decode(&account)
 
 	if payloadErr != nil {
-		log.Fatalf("Unable to decode the request body.  %v", payloadErr)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", payloadErr.Error(), nil))
 	}
 
 	db := database.CreateConnection()
@@ -33,6 +33,27 @@ func register(w http.ResponseWriter, r *http.Request) {
 	if queryErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", queryErr.Error(), nil))
+	} else {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+	}
+}
+
+func userUpdate(w http.ResponseWriter, r *http.Request) {
+	var account models.Accounts
+
+	err := json.NewDecoder(r.Body).Decode(&account)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+	}
+
+	user_id, err := utils.UserUpdate(account.User_id, account.Type)
+
+	if user_id == "" || err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
 	} else {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
@@ -443,7 +464,8 @@ func Router() *mux.Router {
 	routers := mux.NewRouter().StrictSlash(true)
 	routers.Use(commonMiddleware)
 
-	routers.HandleFunc("/wallet/register", register).Methods("POST")
+	routers.HandleFunc("/wallet/user/register", userRegistration).Methods("POST")
+	routers.HandleFunc("/wallet/user/update", userUpdate).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/deposit", fiatDeposit).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/buy", fiatBuy).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/refund/request", fiatRefundRequest).Methods("POST")
