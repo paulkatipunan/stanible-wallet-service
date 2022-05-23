@@ -255,7 +255,7 @@ func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
 
 func fiatRefundList(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.RefundRequest("success", "", utils.RefundRequestList()))
+	json.NewEncoder(w).Encode(utils.RequestListResponse("success", "", utils.RequestList(enums.REFUND)))
 }
 
 func fiatWithdrawRequest(w http.ResponseWriter, r *http.Request) {

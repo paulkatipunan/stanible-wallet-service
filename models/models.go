@@ -48,8 +48,8 @@ type Fiat_currencies struct {
 	Symbol              string `json:"symbol"`
 }
 
-type RefundRequestListModel struct {
-	Pk_fiat_transactions_assoc_id string `json:"refund_id"`
+type RequestListModel struct {
+	Pk_fiat_transactions_assoc_id string `json:"request_id"`
 	Fk_user_id                    string `json:"requesting_user_id"`
 	Amount                        int32  `json:"amount"`
 	Type_name                     string `json:"type_name"`

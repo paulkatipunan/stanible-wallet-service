@@ -214,11 +214,11 @@ func AccountBalance(userId string) (int32, error) {
 	return int32(bal), err
 }
 
-func RefundRequestList() []models.RefundRequestListModel {
+func RequestList(transaction_type string) []models.RequestListModel {
 	db := database.CreateConnection()
 	defer db.Close()
 
-	var refund_request_list []models.RefundRequestListModel
+	var request_list []models.RequestListModel
 
 	sql := `
 		SELECT
@@ -245,14 +245,14 @@ func RefundRequestList() []models.RefundRequestListModel {
 		WHERE
 			fta.status = 'pending' AND
 			ft_sender.status = 'pending' AND
-			tt.type = 'refund'
+			tt.type = $1
 	`
-	rows, _ := db.Query(sql)
+	rows, _ := db.Query(sql, transaction_type)
 
 	defer rows.Close()
 	// iterate over the rows
 	for rows.Next() {
-		var refundRequest models.RefundRequestListModel
+		var refundRequest models.RequestListModel
 
 		_ = rows.Scan(
 			&refundRequest.Pk_fiat_transactions_assoc_id,
@@ -263,10 +263,10 @@ func RefundRequestList() []models.RefundRequestListModel {
 			&refundRequest.Created_at,
 		)
 
-		refund_request_list = append(refund_request_list, refundRequest)
+		request_list = append(request_list, refundRequest)
 	}
 
-	return refund_request_list
+	return request_list
 }
 
 func RefundApprove(transactionPayload models.RefundApprove_payload) error {
