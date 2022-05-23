@@ -133,7 +133,7 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, 
 		rows.Close()
 	}
 
-	// Insert fiat_transations_assoc record
+	// Insert fiat_transactions_assoc record
 	sqlInsertFiatTransactionAssoc := `
 		INSERT INTO fiat_transactions_assoc (
 			pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id, status
@@ -222,7 +222,7 @@ func RefundRequestList() []models.RefundRequestListModel {
 
 	sql := `
 		SELECT
-			fta.pk_fiat_transations_assoc_id,
+			fta.pk_fiat_transactions_assoc_id,
 			ft_receiver.fk_user_id,
 			CAST(ft_receiver.amount as Integer),
 			tt.type as type_name,
@@ -255,7 +255,7 @@ func RefundRequestList() []models.RefundRequestListModel {
 		var refundRequest models.RefundRequestListModel
 
 		_ = rows.Scan(
-			&refundRequest.Pk_fiat_transations_assoc_id,
+			&refundRequest.Pk_fiat_transactions_assoc_id,
 			&refundRequest.Fk_user_id,
 			&refundRequest.Amount,
 			&refundRequest.Type_name,
@@ -297,7 +297,7 @@ func RefundApprove(transactionPayload models.RefundApprove_payload) error {
 		SET
 			status=$1
 		WHERE
-			pk_fiat_transations_assoc_id=$2
+			pk_fiat_transactions_assoc_id=$2
 		RETURNING
 			pk_sender_fiat_transaction_id,
 			pk_receiver_fiat_transaction_id;
