@@ -13,3 +13,8 @@ var TX_STATUS = map[string]string{
 	"FAILED":    "failed",
 	"CANCELLED": "cancelled",
 }
+
+var FE_TX_STATUS = map[string]string{
+	"APPROVE": "approve",
+	"CANCEL":  "cancel",
+}

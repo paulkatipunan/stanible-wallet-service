@@ -240,7 +240,13 @@ func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
 	// Validate status payload
+	if enums.FE_TX_STATUS[strings.ToUpper(transactionPayload.Status)] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Invalid status", nil))
+		return
+	}
 
+	// Approve refund
 	utils.RefundApprove(transactionPayload)
 
 	w.WriteHeader(http.StatusOK)
