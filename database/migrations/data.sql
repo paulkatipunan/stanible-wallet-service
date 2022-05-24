@@ -14,8 +14,10 @@ VALUES
 INSERT INTO
 	accounts(user_id, type)
 VALUES
-	('2681d82e-dd66-4357-96dc-ee5c7b7a6797', 'gcash'),
-	('d5e4698f-0cf4-4ab3-80da-5aa0d14876d4', 'paymaya'),
+	('2681d82e-dd66-4357-96dc-ee5c7b7a6797', 'gcash_deposit'),
+	('55e34c28-d3f9-4161-a910-dc643adfffd3', 'gcash_withdraw'),
+	('d5e4698f-0cf4-4ab3-80da-5aa0d14876d4', 'paymaya_deposit'),
+	('9b955c81-17ce-487d-9bf2-9686349ca652', 'paymaya_withdraw'),
 	('37fda4f6-acdb-4411-995e-305e226dd4c9', 'treasury'),
 	('9aa8ed53-dc51-448c-82fe-5f017f1c18fb', 'regular_user'),
 	('c59c8ca5-8d67-4d03-ab12-8a824ceb754e', 'creator'),
