@@ -35,7 +35,8 @@ var CustomerUserTypes = map[string]string{
 }
 
 var PaymentUserTypes = map[string]string{
-	"GCASH":     "gcash",
-	"PAYMAYA":   "paymaya",
-	"DRAGONPAY": "dragonpay",
+	"GCASH_DEPOSIT":    "gcash_deposit",
+	"GCASH_WITHDRAW":   "gcash_withdraw",
+	"PAYMAYA_DEPOSIT":  "paymaya_deposit",
+	"PAYMAYA_WITHDRAW": "paymaya_withdraw",
 }
