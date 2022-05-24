@@ -370,6 +370,14 @@ func fiatWithdrawApprove(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
 }
 
+func fiatTransactionList(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	user_id := vars["user_id"]
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(utils.FiatTransactionListResponse("success", "", utils.TransactionList(user_id)))
+}
+
 func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user_id := vars["user_id"]
@@ -474,6 +482,9 @@ func Router() *mux.Router {
 	routers.HandleFunc("/wallet/fiat/withdraw/request", fiatWithdrawRequest).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/withdraw/list", fiatWithdrawList).Methods("GET")
 	routers.HandleFunc("/wallet/fiat/withdraw/approve", fiatWithdrawApprove).Methods("POST")
+
+	routers.HandleFunc("/wallet/fiat/transaction/list/{user_id}", fiatTransactionList).Methods("GET")
+
 	routers.HandleFunc("/wallet/fiat/balance/{user_id}", fiatWalletBalance).Methods("GET")
 
 	routers.HandleFunc("/wallet/transaction_types", transactionTypes).Methods("GET")

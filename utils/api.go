@@ -28,6 +28,12 @@ type RequestResponse struct {
 	Data    []models.RequestListModel `json:"data"`
 }
 
+type FiatTransactionResponse struct {
+	Status  string                               `json:"status"`
+	Message string                               `json:"message"`
+	Data    []models.Fiat_transaction_list_model `json:"data"`
+}
+
 func Response(status string, message string, data []string) StdResponse {
 	return StdResponse{
 		Status:  status,
@@ -54,6 +60,14 @@ func FiatCurrencies(status string, message string, data []models.Fiat_currencies
 
 func RequestListResponse(status string, message string, data []models.RequestListModel) RequestResponse {
 	return RequestResponse{
+		Status:  status,
+		Message: message,
+		Data:    data,
+	}
+}
+
+func FiatTransactionListResponse(status string, message string, data []models.Fiat_transaction_list_model) FiatTransactionResponse {
+	return FiatTransactionResponse{
 		Status:  status,
 		Message: message,
 		Data:    data,

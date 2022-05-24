@@ -342,3 +342,62 @@ func RequestApprove(transactionPayload models.RequestApprove_payload) error {
 
 	return nil
 }
+
+func TransactionList(user_id string) []models.Fiat_transaction_list_model {
+	db := database.CreateConnection()
+	defer db.Close()
+
+	var fiat_transaction_list []models.Fiat_transaction_list_model
+
+	sql := `
+		SELECT
+			ft.pk_fiat_transaction_id as transaction_id,
+			CAST(ft.amount as Integer),
+			tt.type as transaction_type,
+			coalesce(fta_sender.ramp_tx_id, fta_receiver.ramp_tx_id) as reference_number,
+			ft.status,
+			ft.created_at
+		FROM
+			fiat_transactions ft
+		INNER JOIN
+			transaction_types tt
+			ON
+				ft.fk_transaction_type_id = tt.pk_transaction_type_id
+		LEFT JOIN
+			fiat_transactions_assoc fta_sender
+			ON
+				fta_sender.pk_sender_fiat_transaction_id = ft.pk_fiat_transaction_id
+		LEFT JOIN
+			fiat_transactions_assoc fta_receiver
+			ON
+				fta_receiver.pk_receiver_fiat_transaction_id = ft.pk_fiat_transaction_id
+		LEFT JOIN
+			accounts a
+			ON
+				a.user_id = ft.fk_user_id
+		WHERE
+			ft.fk_user_id = $1 AND
+			tt.type IN ('deposit', 'refund', 'withdraw', 'buy') AND
+			a.active = true
+	`
+	rows, _ := db.Query(sql, user_id)
+
+	defer rows.Close()
+	// iterate over the rows
+	for rows.Next() {
+		var fiatTransaction models.Fiat_transaction_list_model
+
+		_ = rows.Scan(
+			&fiatTransaction.Pk_fiat_transaction_id,
+			&fiatTransaction.Amount,
+			&fiatTransaction.Type,
+			&fiatTransaction.Ramp_tx_id,
+			&fiatTransaction.Status,
+			&fiatTransaction.Created_at,
+		)
+
+		fiat_transaction_list = append(fiat_transaction_list, fiatTransaction)
+	}
+
+	return fiat_transaction_list
+}

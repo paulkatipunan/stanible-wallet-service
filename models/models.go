@@ -23,6 +23,15 @@ type Fiat_transactions struct {
 	Updated_at string `json:"updated_at"`
 }
 
+type Fiat_transaction_list_model struct {
+	Pk_fiat_transaction_id string `json:"transaction_id"`
+	Amount                 int32  `json:"amount"`
+	Type                   string `json:"transation_type"`
+	Ramp_tx_id             string `json:"ramp_tx_id"`
+	Status                 string `json:"status"`
+	Created_at             string `json:"created_at"`
+}
+
 type Transaction_payload struct {
 	Transaction_type_id string `json:"transaction_type_id"`
 	Sender_user_id      string `json:"sender_user_id"`
