@@ -13,4 +13,4 @@ CREATE TYPE user_type AS ENUM (
 CREATE TYPE tx_status AS ENUM ('pending', 'success', 'cancelled', 'failed');
 -- ALTER TYPE tx_status ADD VALUE 'cancelled' AFTER 'success';
 
-CREATE TYPE tx_type AS ENUM ('deposit', 'withdraw', 'buy', 'refund');
+CREATE TYPE tx_type AS ENUM ('deposit', 'withdraw', 'buy', 'refund', 'fee');

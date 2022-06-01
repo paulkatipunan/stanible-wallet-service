@@ -58,8 +58,8 @@ CREATE TRIGGER update_table_modtime BEFORE UPDATE ON fiat_transactions FOR EACH 
 CREATE TABLE fiat_transactions_assoc (
 	pk_fiat_transactions_assoc_id UUID DEFAULT uuid_generate_v4(),
 
-	pk_sender_fiat_transaction_id UUID NOT NULL REFERENCES fiat_transactions(pk_fiat_transaction_id),
-	pk_receiver_fiat_transaction_id UUID NOT NULL REFERENCES fiat_transactions(pk_fiat_transaction_id),
+	fk_sender_fiat_transaction_id UUID NOT NULL REFERENCES fiat_transactions(pk_fiat_transaction_id),
+	fk_receiver_fiat_transaction_id UUID NOT NULL REFERENCES fiat_transactions(pk_fiat_transaction_id),
 
 	ramp_tx_id VARCHAR UNIQUE NOT NULL,
 	description VARCHAR,
@@ -68,7 +68,42 @@ CREATE TABLE fiat_transactions_assoc (
 	active BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	UNIQUE (pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id),
+	UNIQUE (fk_sender_fiat_transaction_id, fk_receiver_fiat_transaction_id, ramp_tx_id),
 	PRIMARY KEY (pk_fiat_transactions_assoc_id)
 );
 CREATE TRIGGER update_table_modtime BEFORE UPDATE ON fiat_transactions_assoc FOR EACH ROW EXECUTE PROCEDURE on_update_trigger();
+
+CREATE TABLE fiat_fee_types (
+	pk_fiat_fee_type_id UUID DEFAULT uuid_generate_v4(),
+	fee_name VARCHAR NOT NULL,
+	percentage decimal(5,2) DEFAULT 20.00 NOT NULL,
+	description VARCHAR,
+	active BOOLEAN DEFAULT TRUE,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	PRIMARY KEY (pk_fiat_fee_type_id)
+);
+CREATE TRIGGER update_table_modtime BEFORE UPDATE ON fiat_fee_types FOR EACH ROW EXECUTE PROCEDURE on_update_trigger();
+
+CREATE TABLE fiat_transactions_fee_assoc (
+	pk_fiat_transactions_fee_assoc_id UUID DEFAULT uuid_generate_v4(),
+
+	fk_fiat_transactions_assoc_id UUID NOT NULL REFERENCES fiat_transactions_assoc(pk_fiat_transactions_assoc_id),
+
+	fk_sender_fiat_transaction_id UUID NOT NULL REFERENCES fiat_transactions(pk_fiat_transaction_id),
+	fk_receiver_fiat_transaction_id UUID NOT NULL REFERENCES fiat_transactions(pk_fiat_transaction_id),
+
+	description VARCHAR,
+	status tx_status NOT NULL DEFAULT 'pending',
+
+	active BOOLEAN DEFAULT TRUE,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	UNIQUE (
+		fk_fiat_transactions_assoc_id,
+		fk_sender_fiat_transaction_id,
+		fk_receiver_fiat_transaction_id
+	),
+	PRIMARY KEY (pk_fiat_transactions_fee_assoc_id)
+);
+CREATE TRIGGER update_table_modtime BEFORE UPDATE ON fiat_transactions_fee_assoc FOR EACH ROW EXECUTE PROCEDURE on_update_trigger();

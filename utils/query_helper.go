@@ -150,7 +150,7 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, 
 	// Insert fiat_transactions_assoc record
 	sqlInsertFiatTransactionAssoc := `
 		INSERT INTO fiat_transactions_assoc (
-			pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id, ramp_tx_id, status
+			fk_sender_fiat_transaction_id, fk_receiver_fiat_transaction_id, ramp_tx_id, status
 		) VALUES
 			($1, $2, $3, $4)
 	`
@@ -247,11 +247,11 @@ func RequestList(transaction_type string) []models.RequestListModel {
 		LEFT JOIN
 			fiat_transactions ft_sender
 			ON
-				fta.pk_sender_fiat_transaction_id = ft_sender.pk_fiat_transaction_id
+				fta.fk_sender_fiat_transaction_id = ft_sender.pk_fiat_transaction_id
 		LEFT JOIN
 			fiat_transactions ft_receiver
 			ON
-				fta.pk_receiver_fiat_transaction_id = ft_receiver.pk_fiat_transaction_id
+				fta.fk_receiver_fiat_transaction_id = ft_receiver.pk_fiat_transaction_id
 		LEFT JOIN
 			transaction_types tt
 			ON
@@ -313,11 +313,11 @@ func RequestApprove(transactionPayload models.RequestApprove_payload) error {
 		WHERE
 			pk_fiat_transactions_assoc_id=$2
 		RETURNING
-			pk_sender_fiat_transaction_id,
-			pk_receiver_fiat_transaction_id;
+			fk_sender_fiat_transaction_id,
+			fk_receiver_fiat_transaction_id;
 	`
-	var pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id string
-	tx.QueryRow(sqlUpdateFiatTransactionAssoc, status_value, transactionPayload.Request_id).Scan(&pk_sender_fiat_transaction_id, &pk_receiver_fiat_transaction_id)
+	var fk_sender_fiat_transaction_id, fk_receiver_fiat_transaction_id string
+	tx.QueryRow(sqlUpdateFiatTransactionAssoc, status_value, transactionPayload.Request_id).Scan(&fk_sender_fiat_transaction_id, &fk_receiver_fiat_transaction_id)
 
 	// Update fiat_transactions record
 	sqlUpdateFiatTransaction := `
@@ -331,7 +331,7 @@ func RequestApprove(transactionPayload models.RequestApprove_payload) error {
 				$3
 			)
 	`
-	tx.QueryRow(sqlUpdateFiatTransaction, status_value, pk_sender_fiat_transaction_id, pk_receiver_fiat_transaction_id)
+	tx.QueryRow(sqlUpdateFiatTransaction, status_value, fk_sender_fiat_transaction_id, fk_receiver_fiat_transaction_id)
 
 	// Commit the change if all queries ran successfully
 	err = tx.Commit()
@@ -366,11 +366,11 @@ func TransactionList(user_id string) []models.Fiat_transaction_list_model {
 		LEFT JOIN
 			fiat_transactions_assoc fta_sender
 			ON
-				fta_sender.pk_sender_fiat_transaction_id = ft.pk_fiat_transaction_id
+				fta_sender.fk_sender_fiat_transaction_id = ft.pk_fiat_transaction_id
 		LEFT JOIN
 			fiat_transactions_assoc fta_receiver
 			ON
-				fta_receiver.pk_receiver_fiat_transaction_id = ft.pk_fiat_transaction_id
+				fta_receiver.fk_receiver_fiat_transaction_id = ft.pk_fiat_transaction_id
 		LEFT JOIN
 			accounts a
 			ON
