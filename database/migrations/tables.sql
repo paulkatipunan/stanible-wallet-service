@@ -45,7 +45,8 @@ CREATE TABLE fiat_transactions (
 	fk_transaction_type_id UUID NOT NULL REFERENCES transaction_types(pk_transaction_type_id),
 	fk_fiat_currency_id UUID NOT NULL REFERENCES fiat_currencies(pk_fiat_currency_id),
 	
-	amount NUMERIC(12, 2) DEFAULT 0 NOT NULL,
+	total_amount NUMERIC(12, 2) DEFAULT 0 NOT NULL,
+	actual_amount NUMERIC(12, 2) DEFAULT 0 NOT NULL,
 	status tx_status NOT NULL DEFAULT 'pending',
 	
 	active BOOLEAN DEFAULT TRUE,

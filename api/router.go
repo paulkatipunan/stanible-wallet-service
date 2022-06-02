@@ -119,7 +119,10 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	transactionPayload.Transaction_type_id = pk_transaction_type_id
 
 	// Insert fiat_transaction and fiat_transaction_assoc records
-	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["SUCCESS"])
+	txResponse := utils.InsertFiatTransactionRecord(utils.FiatPayloadConverter(
+		transactionPayload,
+		transactionPayload.Amount, // actual amount
+	), enums.TX_STATUS["SUCCESS"])
 
 	if txResponse != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -163,8 +166,13 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert fiat_transaction and fiat_transaction_assoc records
-	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["SUCCESS"])
+	actualAmount, feeAmount := utils.FeeCalculator(enums.BUY, transactionPayload.Amount)
+
+	// Insert fiat_transaction, fiat_transaction_assoc records and fiat_transactions_fee_assoc
+	txResponse := utils.InsertFiatTransactionWithFeeRecord(utils.FiatPayloadConverter(
+		transactionPayload,
+		int32(actualAmount), // actual amount
+	), enums.TX_STATUS["SUCCESS"], int32(feeAmount), int32(actualAmount))
 
 	if txResponse != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -175,208 +183,208 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
-	// Get payloads and assign fiat_transaction model
-	var transactionPayload models.Transaction_payload
-	json.NewDecoder(r.Body).Decode(&transactionPayload)
+// func fiatRefundRequest(w http.ResponseWriter, r *http.Request) {
+// 	// Get payloads and assign fiat_transaction model
+// 	var transactionPayload models.Transaction_payload
+// 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
-	// Validation#01
-	// Sender and receiver cannot be the same
-	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
-		return
-	}
+// 	// Validation#01
+// 	// Sender and receiver cannot be the same
+// 	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
+// 		return
+// 	}
 
-	// Validation#02
-	// Check if sender and receiver addresses are both active
-	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if total_users < 2 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
-		return
-	}
+// 	// Validation#02
+// 	// Check if sender and receiver addresses are both active
+// 	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+// 	if total_users < 2 {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
+// 		return
+// 	}
 
-	// Validation#03
-	// Validate user types
-	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
-		return
-	}
-	sender_type := row[0]
-	receiver_type := row[1]
-	if sender_type != enums.SystemUserTypes["TREASURY"] ||
-		enums.CustomerUserTypes[strings.ToUpper(receiver_type)] == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
-		return
-	}
+// 	// Validation#03
+// 	// Validate user types
+// 	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+// 		return
+// 	}
+// 	sender_type := row[0]
+// 	receiver_type := row[1]
+// 	if sender_type != enums.SystemUserTypes["TREASURY"] ||
+// 		enums.CustomerUserTypes[strings.ToUpper(receiver_type)] == "" {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
+// 		return
+// 	}
 
-	// Validation#04
-	// Check balance cap
-	// Balance is from the receiving account
-	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
-		return
-	}
+// 	// Validation#04
+// 	// Check balance cap
+// 	// Balance is from the receiving account
+// 	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+// 		return
+// 	}
 
-	// NOTE:
-	// Balance 0 should be allowed as long as there was a deposit and buy made before,
-	// and refund should be less than or equal to the buy amount
+// 	// NOTE:
+// 	// Balance 0 should be allowed as long as there was a deposit and buy made before,
+// 	// and refund should be less than or equal to the buy amount
 
-	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
-		return
-	}
+// 	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
+// 		return
+// 	}
 
-	// Get transaction type and transaction_type_id
-	pk_transaction_type_id, _ := utils.GetTransactionType(enums.REFUND)
-	transactionPayload.Transaction_type_id = pk_transaction_type_id
+// 	// Get transaction type and transaction_type_id
+// 	pk_transaction_type_id, _ := utils.GetTransactionType(enums.REFUND)
+// 	transactionPayload.Transaction_type_id = pk_transaction_type_id
 
-	// Insert fiat_transaction and fiat_transaction_assoc records
-	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["PENDING"])
+// 	// Insert fiat_transaction and fiat_transaction_assoc records
+// 	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["PENDING"])
 
-	if txResponse != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", txResponse.Error(), nil))
-	} else {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
-	}
-}
+// 	if txResponse != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", txResponse.Error(), nil))
+// 	} else {
+// 		w.WriteHeader(http.StatusOK)
+// 		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+// 	}
+// }
 
-func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
-	// Get payloads and assign fiat_transaction model
-	var transactionPayload models.RequestApprove_payload
-	json.NewDecoder(r.Body).Decode(&transactionPayload)
+// func fiatRefundApprove(w http.ResponseWriter, r *http.Request) {
+// 	// Get payloads and assign fiat_transaction model
+// 	var transactionPayload models.RequestApprove_payload
+// 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
-	// Validate status payload
-	if enums.FE_TX_STATUS[strings.ToUpper(transactionPayload.Status)] == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Invalid status", nil))
-		return
-	}
+// 	// Validate status payload
+// 	if enums.FE_TX_STATUS[strings.ToUpper(transactionPayload.Status)] == "" {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Invalid status", nil))
+// 		return
+// 	}
 
-	// Approve refund
-	utils.RequestApprove(transactionPayload)
+// 	// Approve refund
+// 	utils.RequestApprove(transactionPayload)
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
-}
+// 	w.WriteHeader(http.StatusOK)
+// 	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+// }
 
-func fiatRefundList(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.RequestListResponse("success", "", utils.RequestList(enums.REFUND)))
-}
+// func fiatRefundList(w http.ResponseWriter, r *http.Request) {
+// 	w.WriteHeader(http.StatusOK)
+// 	json.NewEncoder(w).Encode(utils.RequestListResponse("success", "", utils.RequestList(enums.REFUND)))
+// }
 
-func fiatWithdrawRequest(w http.ResponseWriter, r *http.Request) {
-	// Get payloads and assign fiat_transaction model
-	var transactionPayload models.Transaction_payload
-	json.NewDecoder(r.Body).Decode(&transactionPayload)
+// func fiatWithdrawRequest(w http.ResponseWriter, r *http.Request) {
+// 	// Get payloads and assign fiat_transaction model
+// 	var transactionPayload models.Transaction_payload
+// 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
-	// Validation#01
-	// Sender and receiver cannot be the same
-	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
-		return
-	}
+// 	// Validation#01
+// 	// Sender and receiver cannot be the same
+// 	if transactionPayload.Sender_user_id == transactionPayload.Receiver_user_id {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Sender and receiver cannot be the same", nil))
+// 		return
+// 	}
 
-	// Validation#02
-	// Check if sender and receiver addresses are both active
-	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if total_users < 2 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
-		return
-	}
+// 	// Validation#02
+// 	// Check if sender and receiver addresses are both active
+// 	total_users := utils.ActiveSenderReceiver(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+// 	if total_users < 2 {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Sender or receiver addresses are not active", nil))
+// 		return
+// 	}
 
-	// Validation#03
-	// Validate user types
-	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
-		return
-	}
-	sender_type := row[0]
-	receiver_type := row[1]
+// 	// Validation#03
+// 	// Validate user types
+// 	row, err := utils.UserTypes(transactionPayload.Sender_user_id, transactionPayload.Receiver_user_id)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+// 		return
+// 	}
+// 	sender_type := row[0]
+// 	receiver_type := row[1]
 
-	if enums.WithdrawalUserTypes()[strings.ToUpper(sender_type)] == "" ||
-		enums.PaymentUserTypes[strings.ToUpper(receiver_type)] == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
-		return
-	}
+// 	if enums.WithdrawalUserTypes()[strings.ToUpper(sender_type)] == "" ||
+// 		enums.PaymentUserTypes[strings.ToUpper(receiver_type)] == "" {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
+// 		return
+// 	}
 
-	// Validation#04
-	// Check balance cap
-	// Balance is from the sender account
-	bal, err := utils.AccountBalance(transactionPayload.Sender_user_id)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
-		return
-	}
+// 	// Validation#04
+// 	// Check balance cap
+// 	// Balance is from the sender account
+// 	bal, err := utils.AccountBalance(transactionPayload.Sender_user_id)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+// 		return
+// 	}
 
-	if transactionPayload.Amount > bal {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Insufficient balance", nil))
-		return
-	}
+// 	if transactionPayload.Amount > bal {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Insufficient balance", nil))
+// 		return
+// 	}
 
-	// Get transaction type and transaction_type_id
-	pk_transaction_type_id, _ := utils.GetTransactionType(enums.WITHDRAW)
-	transactionPayload.Transaction_type_id = pk_transaction_type_id
+// 	// Get transaction type and transaction_type_id
+// 	pk_transaction_type_id, _ := utils.GetTransactionType(enums.WITHDRAW)
+// 	transactionPayload.Transaction_type_id = pk_transaction_type_id
 
-	// Insert fiat_transaction and fiat_transaction_assoc records
-	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["PENDING"])
+// 	// Insert fiat_transaction and fiat_transaction_assoc records
+// 	txResponse := utils.InsertFiatTransactionRecord(transactionPayload, enums.TX_STATUS["PENDING"])
 
-	if txResponse != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", txResponse.Error(), nil))
-	} else {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
-	}
-}
+// 	if txResponse != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", txResponse.Error(), nil))
+// 	} else {
+// 		w.WriteHeader(http.StatusOK)
+// 		json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+// 	}
+// }
 
-func fiatWithdrawList(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.RequestListResponse("success", "", utils.RequestList(enums.WITHDRAW)))
-}
+// func fiatWithdrawList(w http.ResponseWriter, r *http.Request) {
+// 	w.WriteHeader(http.StatusOK)
+// 	json.NewEncoder(w).Encode(utils.RequestListResponse("success", "", utils.RequestList(enums.WITHDRAW)))
+// }
 
-func fiatWithdrawApprove(w http.ResponseWriter, r *http.Request) {
-	// Get payloads and assign fiat_transaction model
-	var transactionPayload models.RequestApprove_payload
-	json.NewDecoder(r.Body).Decode(&transactionPayload)
+// func fiatWithdrawApprove(w http.ResponseWriter, r *http.Request) {
+// 	// Get payloads and assign fiat_transaction model
+// 	var transactionPayload models.RequestApprove_payload
+// 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
-	// Validate status payload
-	if enums.FE_TX_STATUS[strings.ToUpper(transactionPayload.Status)] == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", "Invalid status", nil))
-		return
-	}
+// 	// Validate status payload
+// 	if enums.FE_TX_STATUS[strings.ToUpper(transactionPayload.Status)] == "" {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(utils.Response("error", "Invalid status", nil))
+// 		return
+// 	}
 
-	// Approve refund
-	utils.RequestApprove(transactionPayload)
+// 	// Approve refund
+// 	utils.RequestApprove(transactionPayload)
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
-}
+// 	w.WriteHeader(http.StatusOK)
+// 	json.NewEncoder(w).Encode(utils.Response("success", "", nil))
+// }
 
-func fiatTransactionList(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	user_id := vars["user_id"]
+// func fiatTransactionList(w http.ResponseWriter, r *http.Request) {
+// 	vars := mux.Vars(r)
+// 	user_id := vars["user_id"]
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.FiatTransactionListResponse("success", "", utils.TransactionList(user_id)))
-}
+// 	w.WriteHeader(http.StatusOK)
+// 	json.NewEncoder(w).Encode(utils.FiatTransactionListResponse("success", "", utils.TransactionList(user_id)))
+// }
 
 func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -476,14 +484,14 @@ func Router() *mux.Router {
 	routers.HandleFunc("/wallet/user/update", userUpdate).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/deposit", fiatDeposit).Methods("POST")
 	routers.HandleFunc("/wallet/fiat/buy", fiatBuy).Methods("POST")
-	routers.HandleFunc("/wallet/fiat/refund/request", fiatRefundRequest).Methods("POST")
-	routers.HandleFunc("/wallet/fiat/refund/approve", fiatRefundApprove).Methods("POST")
-	routers.HandleFunc("/wallet/fiat/refund/list", fiatRefundList).Methods("GET")
-	routers.HandleFunc("/wallet/fiat/withdraw/request", fiatWithdrawRequest).Methods("POST")
-	routers.HandleFunc("/wallet/fiat/withdraw/list", fiatWithdrawList).Methods("GET")
-	routers.HandleFunc("/wallet/fiat/withdraw/approve", fiatWithdrawApprove).Methods("POST")
+	// routers.HandleFunc("/wallet/fiat/refund/request", fiatRefundRequest).Methods("POST")
+	// routers.HandleFunc("/wallet/fiat/refund/approve", fiatRefundApprove).Methods("POST")
+	// routers.HandleFunc("/wallet/fiat/refund/list", fiatRefundList).Methods("GET")
+	// routers.HandleFunc("/wallet/fiat/withdraw/request", fiatWithdrawRequest).Methods("POST")
+	// routers.HandleFunc("/wallet/fiat/withdraw/list", fiatWithdrawList).Methods("GET")
+	// routers.HandleFunc("/wallet/fiat/withdraw/approve", fiatWithdrawApprove).Methods("POST")
 
-	routers.HandleFunc("/wallet/fiat/transaction/list/{user_id}", fiatTransactionList).Methods("GET")
+	// routers.HandleFunc("/wallet/fiat/transaction/list/{user_id}", fiatTransactionList).Methods("GET")
 
 	routers.HandleFunc("/wallet/fiat/balance/{user_id}", fiatWalletBalance).Methods("GET")
 

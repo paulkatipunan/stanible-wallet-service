@@ -5,6 +5,7 @@ const (
 	BUY      = "buy"
 	REFUND   = "refund"
 	WITHDRAW = "withdraw"
+	FEE      = "fee"
 )
 
 var TX_STATUS = map[string]string{

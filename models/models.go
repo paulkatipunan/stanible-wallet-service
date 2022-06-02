@@ -25,7 +25,8 @@ type Fiat_transactions struct {
 
 type Fiat_transaction_list_model struct {
 	Pk_fiat_transaction_id string `json:"transaction_id"`
-	Amount                 int32  `json:"amount"`
+	Total_amount           int32  `json:"amount"`
+	Actual_amount          int32  `json:"actual_amount"`
 	Type                   string `json:"transation_type"`
 	Ramp_tx_id             string `json:"ramp_tx_id"`
 	Status                 string `json:"status"`
@@ -38,6 +39,16 @@ type Transaction_payload struct {
 	Receiver_user_id    string `json:"receiver_user_id"`
 	Fiat_currency_id    string `json:"fiat_currency_id"`
 	Amount              int32  `json:"amount"`
+	Ramp_tx_id          string `json:"ramp_tx_id"`
+}
+
+type Transaction_data struct {
+	Transaction_type_id string `json:"transaction_type_id"`
+	Sender_user_id      string `json:"sender_user_id"`
+	Receiver_user_id    string `json:"receiver_user_id"`
+	Fiat_currency_id    string `json:"fiat_currency_id"`
+	Total_amount        int32  `json:"total_amount"`
+	Actual_amount       int32  `json:"actual_amount"`
 	Ramp_tx_id          string `json:"ramp_tx_id"`
 }
 

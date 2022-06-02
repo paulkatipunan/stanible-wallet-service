@@ -1,3 +1,7 @@
+DROP TYPE user_type;
+DROP TYPE tx_status;
+DROP TYPE tx_type;
+
 DROP TABLE fiat_transactions_fee_assoc;
 DROP TABLE fiat_transactions_assoc;
 DROP TABLE fiat_transactions;

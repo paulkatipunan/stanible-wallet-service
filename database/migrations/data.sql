@@ -27,4 +27,4 @@ VALUES
 	('121ab07d-bcf8-46a8-a111-ce053bc0eb69', 'regular_user'),
 	('aa9b25dd-951c-4845-bb93-30c9d4bb4ca1', 'admin');
 
-INSERT INTO fiat_fee_types(fee_name) VALUES('buy');
+INSERT INTO fiat_fee_types(fee_name) VALUES ('buy'), ('deposit');

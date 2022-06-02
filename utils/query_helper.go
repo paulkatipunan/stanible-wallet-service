@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,17 @@ func GetTransactionType(txType string) (string, string) {
 	db.QueryRow(sql, txType).Scan(&pk_transaction_type_id, &tx_type)
 
 	return pk_transaction_type_id, tx_type
+}
+
+func GetTransactionFeeType(txType string) (string, string) {
+	db := database.CreateConnection()
+	defer db.Close()
+
+	var pk_fiat_fee_type_id, percentage string
+	sql := `SELECT pk_fiat_fee_type_id, percentage FROM fiat_fee_types WHERE fee_name=$1`
+	db.QueryRow(sql, txType).Scan(&pk_fiat_fee_type_id, &percentage)
+
+	return pk_fiat_fee_type_id, percentage
 }
 
 func ActiveSenderReceiver(sender_user_id string, receiver_user_id string) int {
@@ -99,7 +111,7 @@ func UserTypes(sender_user_id string, receiver_user_id string) ([]string, error)
 	}
 }
 
-func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, status string) error {
+func InsertFiatTransactionRecord(transactionData models.Transaction_data, status string) error {
 	// Begin tx
 	ctx := context.Background()
 	db := database.CreateConnection()
@@ -115,10 +127,16 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, 
 	// Insert fiat_transaction record
 	sqlInsertFiatTransaction := `
 		INSERT INTO fiat_transactions (
-			pk_fiat_transaction_id, fk_user_id, fk_transaction_type_id, fk_fiat_currency_id, amount, status
+			pk_fiat_transaction_id,
+			fk_user_id,
+			fk_transaction_type_id,
+			fk_fiat_currency_id,
+			total_amount,
+			actual_amount,
+			status
 		) VALUES
-			($1, $2, $3, $4, $5, $6),
-			($7, $8, $9, $10, $11, $12)
+			($1, $2, $3, $4, $5, $6, $7),
+			($8, $9, $10, $11, $12, $13, $14)
 	`
 	pkSenderId := uuid.New()
 	pkReceiverId := uuid.New()
@@ -126,17 +144,19 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, 
 		sqlInsertFiatTransaction,
 
 		pkSenderId,
-		transactionPayload.Sender_user_id,
-		transactionPayload.Transaction_type_id,
-		transactionPayload.Fiat_currency_id,
-		-transactionPayload.Amount,
+		transactionData.Sender_user_id,
+		transactionData.Transaction_type_id,
+		transactionData.Fiat_currency_id,
+		-transactionData.Total_amount,
+		-transactionData.Actual_amount,
 		status_value,
 
 		pkReceiverId,
-		transactionPayload.Receiver_user_id,
-		transactionPayload.Transaction_type_id,
-		transactionPayload.Fiat_currency_id,
-		transactionPayload.Amount,
+		transactionData.Receiver_user_id,
+		transactionData.Transaction_type_id,
+		transactionData.Fiat_currency_id,
+		transactionData.Total_amount,
+		transactionData.Actual_amount,
 		status_value,
 	)
 	if err != nil {
@@ -158,7 +178,7 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, 
 		sqlInsertFiatTransactionAssoc,
 		pkSenderId,
 		pkReceiverId,
-		transactionPayload.Ramp_tx_id,
+		transactionData.Ramp_tx_id,
 		status_value,
 	)
 	if err != nil {
@@ -179,6 +199,204 @@ func InsertFiatTransactionRecord(transactionPayload models.Transaction_payload, 
 	return nil
 }
 
+// Insert two transactions
+// 1. normal insert to fiat_transactions and fiat_transactions_assoc
+//	- sender buyer
+//	- receiver seller
+//	- actual_amount from fee calculator
+// 2.1 new insert to fiat_transactions
+// 	- transaction_type_id = fee id
+//	- sender seller
+//	- receiver stanible
+//	- actual_amount from fee calculator
+// 2.2 new insert to fiat_transactions_fee_assoc
+//	- fk_fiat_transactions_assoc_id
+//	- fk_sender_fiat_transaction_id
+//	- fk_receiver_fiat_transaction_id
+func InsertFiatTransactionWithFeeRecord(
+	transactionData models.Transaction_data,
+	status string,
+	feeAmount int32,
+	actualAmount int32,
+) error {
+	// Begin tx
+	ctx := context.Background()
+	db := database.CreateConnection()
+	tx, err := db.BeginTx(ctx, nil)
+	defer db.Close()
+
+	if err != nil {
+		return err
+	}
+
+	// Insert fiat_transaction record
+	sqlInsertFiatTransaction := `
+		INSERT INTO fiat_transactions (
+			pk_fiat_transaction_id,
+			fk_user_id,
+			fk_transaction_type_id,
+			fk_fiat_currency_id,
+			total_amount,
+			actual_amount,
+			status
+		) VALUES
+			($1, $2, $3, $4, $5, $6, $7),
+			($8, $9, $10, $11, $12, $13, $14)
+	`
+	pkSenderId := uuid.New()
+	pkReceiverId := uuid.New()
+	rows, err := tx.Query(
+		sqlInsertFiatTransaction,
+
+		pkSenderId,
+		transactionData.Sender_user_id,
+		transactionData.Transaction_type_id,
+		transactionData.Fiat_currency_id,
+		-transactionData.Total_amount,
+		-actualAmount,
+		status,
+
+		pkReceiverId,
+		transactionData.Receiver_user_id,
+		transactionData.Transaction_type_id,
+		transactionData.Fiat_currency_id,
+		transactionData.Total_amount,
+		actualAmount,
+		status,
+	)
+	if err != nil {
+		// Rollback if error
+		tx.Rollback()
+
+		fmt.Println("error 01")
+		return err
+	} else {
+		rows.Close()
+	}
+
+	// Insert fiat_transactions_assoc record
+	pkTransactionAssoccId := uuid.New()
+	sqlInsertFiatTransactionAssoc := `
+		INSERT INTO fiat_transactions_assoc (
+			pk_fiat_transactions_assoc_id,
+			fk_sender_fiat_transaction_id,
+			fk_receiver_fiat_transaction_id,
+			ramp_tx_id,
+			status
+		) VALUES
+			($1, $2, $3, $4, $5)
+	`
+	row, err := tx.Query(
+		sqlInsertFiatTransactionAssoc,
+
+		pkTransactionAssoccId,
+		pkSenderId,
+		pkReceiverId,
+		transactionData.Ramp_tx_id,
+		status,
+	)
+	if err != nil {
+		// Rollback if error
+		tx.Rollback()
+
+		fmt.Println("error 02")
+		return err
+	} else {
+		row.Close()
+	}
+
+	// Get treasury account id
+	var treasury_id, user_type string
+	sqlTreasuryAccountId := `SELECT user_id as treasury_id, type as user_type FROM accounts WHERE type = $1`
+	db.QueryRow(sqlTreasuryAccountId, enums.SystemUserTypes["TREASURY"]).Scan(&treasury_id, &user_type)
+
+	// Get transactioin_type_id of type fee
+	var tx_fee_id, tx_type string
+	sqlTransactioinTypeId := `SELECT pk_transaction_type_id as tx_fee_id, type as tx_type FROM transaction_types WHERE type = $1`
+	db.QueryRow(sqlTransactioinTypeId, enums.FEE).Scan(&tx_fee_id, &tx_type)
+
+	// Insert insert to fiat_transactions for fee record
+	sqlInsertFiatFeeTransaction := `
+		INSERT INTO fiat_transactions (
+			pk_fiat_transaction_id,
+			fk_user_id,
+			fk_transaction_type_id,
+			fk_fiat_currency_id,
+			total_amount,
+			actual_amount,
+			status
+		) VALUES
+			($1, $2, $3, $4, $5, $6, $7),
+			($8, $9, $10, $11, $12, $13, $14)
+	`
+	pkSenderIdFee := uuid.New()
+	pkReceiverIdFee := uuid.New()
+	rowsFee, err := tx.Query(
+		sqlInsertFiatFeeTransaction,
+
+		pkSenderIdFee,
+		transactionData.Receiver_user_id,
+		tx_fee_id,
+		transactionData.Fiat_currency_id,
+		-transactionData.Total_amount,
+		-feeAmount,
+		status,
+
+		pkReceiverIdFee,
+		treasury_id,
+		tx_fee_id,
+		transactionData.Fiat_currency_id,
+		transactionData.Total_amount,
+		feeAmount,
+		status,
+	)
+	if err != nil {
+		// Rollback if error
+		tx.Rollback()
+
+		fmt.Println("error 03")
+		return err
+	} else {
+		rowsFee.Close()
+	}
+	// Insert fiat_transactions_fee_assoc record
+	sqlInsertFiatTransactionFeeAssoc := `
+		INSERT INTO fiat_transactions_fee_assoc (
+			fk_fiat_transactions_assoc_id,
+			fk_sender_fiat_transaction_id,
+			fk_receiver_fiat_transaction_id,
+			status
+		) VALUES
+			($1, $2, $3, $4)
+	`
+	rowFeeAssoc, err := tx.Query(
+		sqlInsertFiatTransactionFeeAssoc,
+
+		pkTransactionAssoccId,
+		pkSenderIdFee,
+		pkReceiverIdFee,
+		status,
+	)
+	if err != nil {
+		// Rollback if error
+		tx.Rollback()
+
+		fmt.Println("error 04")
+		return err
+	} else {
+		rowFeeAssoc.Close()
+	}
+
+	// Commit the change if all queries ran successfully
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return nil
+}
+
 func AccountBalance(userId string) (int32, error) {
 	db := database.CreateConnection()
 	defer db.Close()
@@ -186,9 +404,9 @@ func AccountBalance(userId string) (int32, error) {
 	var balance []uint8
 	sql := `
 		SELECT
-			coalesce(SUM(ft.amount), 0) + (
+			coalesce(SUM(ft.total_amount), 0) + (
 			SELECT
-				coalesce(SUM(ft.amount), 0) as balance
+				coalesce(SUM(ft.total_amount), 0) as balance
 			FROM
 				fiat_transactions ft
 			INNER JOIN
@@ -238,7 +456,7 @@ func RequestList(transaction_type string) []models.RequestListModel {
 		SELECT
 			fta.pk_fiat_transactions_assoc_id,
 			ft_receiver.fk_user_id,
-			CAST(ft_receiver.amount as Integer),
+			CAST(ft_receiver.actual_amount as Integer),
 			tt.type as type_name,
 			fta.status,
 			fta.created_at
@@ -352,7 +570,7 @@ func TransactionList(user_id string) []models.Fiat_transaction_list_model {
 	sql := `
 		SELECT
 			ft.pk_fiat_transaction_id as transaction_id,
-			CAST(ft.amount as Integer),
+			CAST(ft.total_amount as Integer),
 			tt.type as transaction_type,
 			coalesce(fta_sender.ramp_tx_id, fta_receiver.ramp_tx_id) as reference_number,
 			ft.status,
@@ -389,7 +607,7 @@ func TransactionList(user_id string) []models.Fiat_transaction_list_model {
 
 		_ = rows.Scan(
 			&fiatTransaction.Pk_fiat_transaction_id,
-			&fiatTransaction.Amount,
+			&fiatTransaction.Total_amount,
 			&fiatTransaction.Type,
 			&fiatTransaction.Ramp_tx_id,
 			&fiatTransaction.Status,
