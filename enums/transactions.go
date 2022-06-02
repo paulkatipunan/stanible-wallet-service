@@ -6,7 +6,17 @@ const (
 	REFUND   = "refund"
 	WITHDRAW = "withdraw"
 	FEE      = "fee"
+	ALL      = "all"
 )
+
+var TX_TYPES = map[string]string{
+	"DEPOSIT":  DEPOSIT,
+	"BUY":      BUY,
+	"REFUND":   REFUND,
+	"WITHDRAW": WITHDRAW,
+	"FEE":      FEE,
+	"ALL":      ALL,
+}
 
 var TX_STATUS = map[string]string{
 	"PENDING":   "pending",

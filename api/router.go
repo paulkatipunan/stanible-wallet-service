@@ -382,8 +382,31 @@ func fiatTransactionList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user_id := vars["user_id"]
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(utils.FiatTransactionListResponse("success", "", utils.TransactionList(user_id)))
+	page := r.URL.Query().Get("page")
+	limit := r.URL.Query().Get("limit")
+	txType := r.URL.Query().Get("tx_type")
+
+	if page == "" || limit == "" || txType == "" || enums.TX_TYPES[strings.ToUpper(txType)] == "" ||
+		enums.TX_TYPES[strings.ToUpper(txType)] == enums.FEE {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Some filters are missing or invalid", nil))
+		return
+	}
+
+	rows, err := utils.TransactionList(
+		user_id,
+		page,
+		limit,
+		txType,
+	)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+	} else {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(utils.FiatTransactionListResponse("success", "", rows))
+	}
 }
 
 func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {

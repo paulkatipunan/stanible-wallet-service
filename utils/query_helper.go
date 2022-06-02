@@ -558,13 +558,12 @@ func RequestApprove(transactionPayload models.RequestApprove_payload) error {
 	return nil
 }
 
-func TransactionList(user_id string) []models.Fiat_transaction_list_model {
+func TransactionList(user_id string, offset string, limit string, tx_type string) ([]models.Fiat_transaction_list_model, error) {
 	db := database.CreateConnection()
 	defer db.Close()
 
 	var fiat_transaction_list []models.Fiat_transaction_list_model
-
-	sql := `
+	var sql string = `
 		SELECT
 			ft.pk_fiat_transaction_id as transaction_id,
 			CAST(ft.total_amount as Integer),
@@ -592,12 +591,22 @@ func TransactionList(user_id string) []models.Fiat_transaction_list_model {
 				a.user_id = ft.fk_user_id
 		WHERE
 			ft.fk_user_id = $1 AND
-			tt.type IN ('deposit', 'refund', 'withdraw', 'buy') AND
-			a.active = true
+			a.active = true AND		
 	`
-	rows, _ := db.Query(sql, user_id)
 
-	defer rows.Close()
+	if tx_type == enums.ALL {
+		sql += `tt.type IN ('deposit', 'refund', 'withdraw', 'buy')`
+	} else {
+		sql += `tt.type = '` + tx_type + `'`
+	}
+
+	sql += `OFFSET ($2-1)*$3 LIMIT $4`
+
+	rows, err := db.Query(sql, user_id, offset, limit, limit)
+
+	if err != nil {
+		defer rows.Close()
+	}
 	// iterate over the rows
 	for rows.Next() {
 		var fiatTransaction models.Fiat_transaction_list_model
@@ -614,5 +623,5 @@ func TransactionList(user_id string) []models.Fiat_transaction_list_model {
 		fiat_transaction_list = append(fiat_transaction_list, fiatTransaction)
 	}
 
-	return fiat_transaction_list
+	return fiat_transaction_list, err
 }
