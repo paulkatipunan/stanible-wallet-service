@@ -103,12 +103,12 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	// Check balance cap
 	// Balance is from the receiving account
 	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
-	if err != nil {
+	if err != nil || !bal.Valid {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 		return
 	}
-	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
+	if (transactionPayload.Amount + bal.Int32) >= enums.BALANCE_CAP {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
 		return
@@ -142,13 +142,13 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 	// Balance is from the sending account
 	bal, err := utils.AccountBalance(transactionPayload.Sender_user_id)
 
-	if err != nil {
+	if err != nil || !bal.Valid {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 		return
 	}
 
-	if bal <= 0 || transactionPayload.Amount > int32(bal) {
+	if bal.Int32 <= 0 || transactionPayload.Amount > bal.Int32 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Insuffucient balance", nil))
 		return
@@ -392,12 +392,12 @@ func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
 
 	bal, err := utils.AccountBalance(user_id)
 
-	if err != nil {
+	if err != nil || !bal.Valid {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(utils.Response("error", err.Error(), nil))
+		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 	} else {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", "", []string{strconv.Itoa(int(bal))}))
+		json.NewEncoder(w).Encode(utils.Response("success", "", []string{strconv.Itoa(int(bal.Int32))}))
 	}
 }
 

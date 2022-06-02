@@ -2,9 +2,8 @@ package utils
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"api.stanible.com/wallet/database"
 	"api.stanible.com/wallet/enums"
@@ -397,16 +396,16 @@ func InsertFiatTransactionWithFeeRecord(
 	return nil
 }
 
-func AccountBalance(userId string) (int32, error) {
+func AccountBalance(userId string) (sql.NullInt32, error) {
 	db := database.CreateConnection()
 	defer db.Close()
 
-	var balance []uint8
+	var balance sql.NullInt32
 	sql := `
 		SELECT
-			coalesce(SUM(ft.total_amount), 0) + (
+			CAST(SUM(ft.total_amount) as Integer) + (
 			SELECT
-				coalesce(SUM(ft.total_amount), 0) as balance
+				CAST(SUM(ft.total_amount) as Integer) as balance
 			FROM
 				fiat_transactions ft
 			INNER JOIN
@@ -437,13 +436,11 @@ func AccountBalance(userId string) (int32, error) {
 			ft.fk_user_id = $2 AND
 			tt.type IN ('deposit', 'refund') AND
 			a.active = true AND
-			ft.status = 'success'
+			ft.status = 'success';
 	`
-	db.QueryRow(sql, userId, userId).Scan(&balance)
+	err := db.QueryRow(sql, userId, userId).Scan(&balance)
 
-	bal, err := strconv.Atoi(strings.Split(string(balance), ".")[0])
-
-	return int32(bal), err
+	return balance, err
 }
 
 func RequestList(transaction_type string) []models.RequestListModel {
