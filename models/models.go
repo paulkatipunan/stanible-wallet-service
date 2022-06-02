@@ -39,7 +39,7 @@ type Transaction_payload struct {
 	Receiver_user_id    string `json:"receiver_user_id"`
 	Fiat_currency_id    string `json:"fiat_currency_id"`
 	Amount              int32  `json:"amount"`
-	Ramp_tx_id          string `json:"ramp_tx_id"`
+	Reference_number    string `json:"reference_number"`
 }
 
 type Transaction_data struct {

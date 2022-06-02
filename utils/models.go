@@ -11,7 +11,7 @@ func FiatPayloadConverter(transactionPayload models.Transaction_payload, actualA
 	transactionData.Fiat_currency_id = transactionPayload.Fiat_currency_id
 	transactionData.Total_amount = transactionPayload.Amount
 	transactionData.Actual_amount = actualAmount
-	transactionData.Ramp_tx_id = transactionPayload.Ramp_tx_id
+	transactionData.Ramp_tx_id = transactionPayload.Reference_number
 
 	return transactionData
 }
