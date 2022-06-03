@@ -571,6 +571,15 @@ func TransactionList(user_id string, offset string, limit string, tx_type string
 	defer db.Close()
 
 	var fiat_transaction_list []models.Fiat_transaction_list_model
+	var pk_account_id string
+
+	sqlUser := `SELECT pk_account_id FROM accounts WHERE user_id = $1`
+	errUser := db.QueryRow(sqlUser, user_id).Scan(&pk_account_id)
+
+	if errUser != nil {
+		return fiat_transaction_list, errUser
+	}
+
 	var sql string = `
 		SELECT
 			ft.pk_fiat_transaction_id as transaction_id,
@@ -618,7 +627,6 @@ func TransactionList(user_id string, offset string, limit string, tx_type string
 	// iterate over the rows
 	for rows.Next() {
 		var fiatTransaction models.Fiat_transaction_list_model
-
 		_ = rows.Scan(
 			&fiatTransaction.Pk_fiat_transaction_id,
 			&fiatTransaction.Total_amount,
