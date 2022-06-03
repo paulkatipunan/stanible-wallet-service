@@ -27,7 +27,7 @@ type Fiat_transaction_list_model struct {
 	Pk_fiat_transaction_id string `json:"transaction_id"`
 	Total_amount           int32  `json:"amount"`
 	Actual_amount          int32  `json:"actual_amount"`
-	Type                   string `json:"transation_type"`
+	Type                   string `json:"transaction_type"`
 	Ramp_tx_id             string `json:"ramp_tx_id"`
 	Status                 string `json:"status"`
 	Created_at             string `json:"created_at"`
