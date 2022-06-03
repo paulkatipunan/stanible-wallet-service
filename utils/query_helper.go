@@ -566,7 +566,14 @@ func RequestApprove(transactionPayload models.RequestApprove_payload) error {
 	return nil
 }
 
-func TransactionList(user_id string, offset string, limit string, tx_type string) ([]models.Fiat_transaction_list_model, error) {
+func TransactionList(
+	user_id string,
+	offset string,
+	limit string,
+	tx_type string,
+	dateStart string,
+	dateEnd string,
+) ([]models.Fiat_transaction_list_model, error) {
 	db := database.CreateConnection()
 	defer db.Close()
 
@@ -608,7 +615,10 @@ func TransactionList(user_id string, offset string, limit string, tx_type string
 				a.user_id = ft.fk_user_id
 		WHERE
 			ft.fk_user_id = $1 AND
-			a.active = true AND		
+			a.active = true AND
+			TO_DATE($2,'YYYY/MM/DD') <= TO_DATE(CAST(ft.created_at as TEXT),'YYYY-MM-DD') AND
+			TO_DATE($3,'YYYY/MM/DD') >= TO_DATE(CAST(ft.created_at as TEXT),'YYYY-MM-DD') AND
+
 	`
 
 	if tx_type == enums.ALL {
@@ -617,9 +627,13 @@ func TransactionList(user_id string, offset string, limit string, tx_type string
 		sql += `tt.type = '` + tx_type + `'`
 	}
 
-	sql += `OFFSET ($2-1)*$3 LIMIT $4`
+	sql += `
+		ORDER BY
+			ft.created_at DESC
+		OFFSET ($4-1)*$5 LIMIT $6
+	`
 
-	rows, err := db.Query(sql, user_id, offset, limit, limit)
+	rows, err := db.Query(sql, user_id, dateStart, dateEnd, offset, limit, limit)
 
 	if err != nil {
 		defer rows.Close()

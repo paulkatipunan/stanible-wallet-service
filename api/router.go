@@ -385,9 +385,12 @@ func fiatTransactionList(w http.ResponseWriter, r *http.Request) {
 	page := r.URL.Query().Get("page")
 	limit := r.URL.Query().Get("limit")
 	txType := r.URL.Query().Get("tx_type")
+	dateStart := r.URL.Query().Get("date_start")
+	dateEnd := r.URL.Query().Get("date_end")
 
 	if page == "" || limit == "" || txType == "" || enums.TX_TYPES[strings.ToUpper(txType)] == "" ||
-		enums.TX_TYPES[strings.ToUpper(txType)] == enums.FEE {
+		enums.TX_TYPES[strings.ToUpper(txType)] == enums.FEE ||
+		dateStart == "" || dateEnd == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Some filters are missing or invalid", nil))
 		return
@@ -398,6 +401,8 @@ func fiatTransactionList(w http.ResponseWriter, r *http.Request) {
 		page,
 		limit,
 		txType,
+		dateStart,
+		dateEnd,
 	)
 
 	if err != nil {
