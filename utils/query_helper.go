@@ -401,6 +401,15 @@ func AccountBalance(userId string) (sql.NullInt32, error) {
 	defer db.Close()
 
 	var balance sql.NullInt32
+	var pk_account_id string
+
+	sqlUser := `SELECT pk_account_id FROM accounts WHERE user_id = $1`
+	errUser := db.QueryRow(sqlUser, userId).Scan(&pk_account_id)
+
+	if errUser != nil {
+		return balance, errUser
+	}
+
 	sql := `
 		SELECT
 			CAST(SUM(ft.total_amount) as Integer) + (
@@ -439,7 +448,6 @@ func AccountBalance(userId string) (sql.NullInt32, error) {
 			ft.status = 'success';
 	`
 	err := db.QueryRow(sql, userId, userId).Scan(&balance)
-
 	return balance, err
 }
 

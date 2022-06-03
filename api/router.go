@@ -415,7 +415,7 @@ func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
 
 	bal, err := utils.AccountBalance(user_id)
 
-	if err != nil || !bal.Valid {
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 	} else {
