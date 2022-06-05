@@ -34,22 +34,24 @@ type Fiat_transaction_list_model struct {
 }
 
 type Transaction_payload struct {
-	Transaction_type_id string `json:"transaction_type_id"`
-	Sender_user_id      string `json:"sender_user_id"`
-	Receiver_user_id    string `json:"receiver_user_id"`
-	Fiat_currency_id    string `json:"fiat_currency_id"`
-	Amount              int32  `json:"amount"`
-	Reference_number    string `json:"reference_number"`
+	Transaction_type_id string              `json:"transaction_type_id"`
+	Sender_user_id      string              `json:"sender_user_id"`
+	Receiver_user_id    string              `json:"receiver_user_id"`
+	Fiat_currency_id    string              `json:"fiat_currency_id"`
+	Amount              int32               `json:"amount"`
+	Reference_number    string              `json:"reference_number"`
+	Fee                 []map[string]string `json:"fee,omitempty"`
 }
 
 type Transaction_data struct {
-	Transaction_type_id string `json:"transaction_type_id"`
-	Sender_user_id      string `json:"sender_user_id"`
-	Receiver_user_id    string `json:"receiver_user_id"`
-	Fiat_currency_id    string `json:"fiat_currency_id"`
-	Total_amount        int32  `json:"total_amount"`
-	Actual_amount       int32  `json:"actual_amount"`
-	Ramp_tx_id          string `json:"ramp_tx_id"`
+	Transaction_type_id string            `json:"transaction_type_id"`
+	Sender_user_id      string            `json:"sender_user_id"`
+	Receiver_user_id    string            `json:"receiver_user_id"`
+	Fiat_currency_id    string            `json:"fiat_currency_id"`
+	Total_amount        int32             `json:"total_amount"`
+	Actual_amount       int32             `json:"actual_amount"`
+	Ramp_tx_id          string            `json:"ramp_tx_id"`
+	Fee                 map[string]string `json:",omitempty"`
 }
 
 type RequestApprove_payload struct {

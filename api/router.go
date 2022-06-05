@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -138,6 +139,18 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 	var transactionPayload models.Transaction_payload
 	json.NewDecoder(r.Body).Decode(&transactionPayload)
 
+	if len(transactionPayload.Fee) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(utils.Response("error", "Fee is required", nil))
+		return
+	}
+
+	for _, v := range transactionPayload.Fee {
+		for _k, _v := range v {
+			fmt.Println(_k, _v)
+		}
+	}
+
 	// Check balance
 	// Balance is from the sending account
 	bal, err := utils.AccountBalance(transactionPayload.Sender_user_id)
@@ -217,9 +230,7 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 // 	receiver_type := row[1]
 // 	if sender_type != enums.SystemUserTypes["TREASURY"] ||
 // 		enums.CustomerUserTypes[strings.ToUpper(receiver_type)] == "" {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		json.NewEncoder(w).Encode(utils.Response("error", "Invalid user types", nil))
-// 		return
+
 // 	}
 
 // 	// Validation#04
