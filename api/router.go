@@ -104,12 +104,13 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	// Check balance cap
 	// Balance is from the receiving account
 	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
-	if err != nil || !bal.Valid {
+
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 		return
 	}
-	if (transactionPayload.Amount + bal.Int32) >= enums.BALANCE_CAP {
+	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
 		return
@@ -145,9 +146,13 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var feeData = make(map[string]string)
+
 	for _, v := range transactionPayload.Fee {
 		for _k, _v := range v {
 			fmt.Println(_k, _v)
+			feeData["fee_recipient"] = _k
+			feeData["fee_amount"] = _v
 		}
 	}
 
@@ -155,13 +160,13 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 	// Balance is from the sending account
 	bal, err := utils.AccountBalance(transactionPayload.Sender_user_id)
 
-	if err != nil || !bal.Valid {
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 		return
 	}
 
-	if bal.Int32 <= 0 || transactionPayload.Amount > bal.Int32 {
+	if bal <= 0 || transactionPayload.Amount > bal {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Insuffucient balance", nil))
 		return
@@ -179,13 +184,13 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actualAmount, feeAmount := utils.FeeCalculator(enums.BUY, transactionPayload.Amount)
+	actualAmount, feeAmount := utils.FeeStaticCalculator(enums.BUY, transactionPayload.Amount, feeData["fee_amount"])
 
 	// Insert fiat_transaction, fiat_transaction_assoc records and fiat_transactions_fee_assoc
 	txResponse := utils.InsertFiatTransactionWithFeeRecord(utils.FiatPayloadConverter(
 		transactionPayload,
 		int32(actualAmount), // actual amount
-	), enums.TX_STATUS["SUCCESS"], int32(feeAmount), int32(actualAmount))
+	), enums.TX_STATUS["SUCCESS"], int32(feeAmount), int32(actualAmount), feeData["fee_recipient"])
 
 	if txResponse != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -436,7 +441,7 @@ func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 	} else {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", "", []string{strconv.Itoa(int(bal.Int32))}))
+		json.NewEncoder(w).Encode(utils.Response("success", "", []string{strconv.Itoa(int(bal))}))
 	}
 }
 

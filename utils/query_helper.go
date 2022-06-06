@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"api.stanible.com/wallet/database"
@@ -217,6 +216,7 @@ func InsertFiatTransactionWithFeeRecord(
 	status string,
 	feeAmount int32,
 	actualAmount int32,
+	feeRecipient string,
 ) error {
 	// Begin tx
 	ctx := context.Background()
@@ -304,11 +304,6 @@ func InsertFiatTransactionWithFeeRecord(
 		row.Close()
 	}
 
-	// Get treasury account id
-	var treasury_id, user_type string
-	sqlTreasuryAccountId := `SELECT user_id as treasury_id, type as user_type FROM accounts WHERE type = $1`
-	db.QueryRow(sqlTreasuryAccountId, enums.SystemUserTypes["TREASURY"]).Scan(&treasury_id, &user_type)
-
 	// Get transactioin_type_id of type fee
 	var tx_fee_id, tx_type string
 	sqlTransactioinTypeId := `SELECT pk_transaction_type_id as tx_fee_id, type as tx_type FROM transaction_types WHERE type = $1`
@@ -342,7 +337,7 @@ func InsertFiatTransactionWithFeeRecord(
 		status,
 
 		pkReceiverIdFee,
-		treasury_id,
+		feeRecipient,
 		tx_fee_id,
 		transactionData.Fiat_currency_id,
 		transactionData.Total_amount,
@@ -396,40 +391,41 @@ func InsertFiatTransactionWithFeeRecord(
 	return nil
 }
 
-func AccountBalance(userId string) (sql.NullInt32, error) {
+func AccountBalance(userId string) (int32, error) {
 	db := database.CreateConnection()
 	defer db.Close()
 
-	var balance sql.NullInt32
+	var balance int32
 	var pk_account_id string
 
 	sqlUser := `SELECT pk_account_id FROM accounts WHERE user_id = $1`
 	errUser := db.QueryRow(sqlUser, userId).Scan(&pk_account_id)
 
 	if errUser != nil {
+		fmt.Println("error 01")
 		return balance, errUser
 	}
 
 	sql := `
 		SELECT
-			CAST(SUM(ft.total_amount) as Integer) + (
-			SELECT
-				CAST(SUM(ft.total_amount) as Integer) as balance
-			FROM
-				fiat_transactions ft
-			INNER JOIN
-				transaction_types tt
-				ON
-					ft.fk_transaction_type_id = tt.pk_transaction_type_id
-			LEFT JOIN
-				accounts a
-				ON
-					a.user_id = ft.fk_user_id
-			WHERE
-				ft.fk_user_id = $1 AND
-				tt.type IN ('withdraw', 'buy') AND
-				a.active = true AND
-				ft.status = 'success'
+			COALESCE(CAST(SUM(ft.total_amount) as Integer), 0) + (
+				SELECT
+					COALESCE(CAST(SUM(ft.total_amount) as Integer), 0) as balance
+				FROM
+					fiat_transactions ft
+				INNER JOIN
+					transaction_types tt
+					ON
+						ft.fk_transaction_type_id = tt.pk_transaction_type_id
+				LEFT JOIN
+					accounts a
+					ON
+						a.user_id = ft.fk_user_id
+				WHERE
+					ft.fk_user_id = $1 AND
+					tt.type IN ('withdraw', 'buy') AND
+					a.active = true AND
+					ft.status = 'success'
 			) as balance
 		FROM
 			fiat_transactions ft
@@ -445,10 +441,10 @@ func AccountBalance(userId string) (sql.NullInt32, error) {
 			ft.fk_user_id = $2 AND
 			tt.type IN ('deposit', 'refund') AND
 			a.active = true AND
-			ft.status = 'success';
+			ft.status = 'success'
 	`
-	err := db.QueryRow(sql, userId, userId).Scan(&balance)
-	return balance, err
+	db.QueryRow(sql, userId, userId).Scan(&balance)
+	return balance, nil
 }
 
 func RequestList(transaction_type string) []models.RequestListModel {
@@ -592,7 +588,7 @@ func TransactionList(
 			ft.pk_fiat_transaction_id as transaction_id,
 			CAST(ft.total_amount as Integer),
 			tt.type as transaction_type,
-			coalesce(fta_sender.ramp_tx_id, fta_receiver.ramp_tx_id) as reference_number,
+			COALESCE(fta_sender.ramp_tx_id, fta_receiver.ramp_tx_id) as reference_number,
 			ft.status,
 			ft.created_at
 		FROM
@@ -618,7 +614,6 @@ func TransactionList(
 			a.active = true AND
 			TO_DATE($2,'YYYY/MM/DD') <= TO_DATE(CAST(ft.created_at as TEXT),'YYYY-MM-DD') AND
 			TO_DATE($3,'YYYY/MM/DD') >= TO_DATE(CAST(ft.created_at as TEXT),'YYYY-MM-DD') AND
-
 	`
 
 	if tx_type == enums.ALL {
