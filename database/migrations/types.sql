@@ -16,3 +16,5 @@ CREATE TYPE user_type AS ENUM (
 CREATE TYPE tx_status AS ENUM ('pending', 'success', 'cancelled', 'failed');
 
 CREATE TYPE tx_type AS ENUM ('deposit', 'withdraw', 'buy', 'refund', 'fee');
+
+CREATE TYPE numeric_precision_type AS ENUM ('12,2');

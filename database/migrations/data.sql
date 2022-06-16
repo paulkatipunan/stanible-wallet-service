@@ -28,3 +28,9 @@ VALUES
 	('aa9b25dd-951c-4845-bb93-30c9d4bb4ca1', 'admin');
 
 INSERT INTO fiat_fee_types(fee_name) VALUES ('buy'), ('deposit');
+
+-- CSV file:
+COPY accounts(pk_account_id, user_id, type, description, active, created_at, updated_at)
+FROM '/Users/barrylavides/Documents/stanible/stanible-wallet-service/database/migrations/accounts-1655355602612.csv'
+DELIMITER ','
+CSV HEADER;

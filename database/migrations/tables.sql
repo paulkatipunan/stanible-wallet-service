@@ -32,6 +32,7 @@ CREATE TABLE fiat_currencies (
 
 	name VARCHAR NOT NULL,
 	symbol VARCHAR NOT NULL,
+	numeric_precision numeric_precision_type NOT NULL,
 	
 	description VARCHAR,
 	active BOOLEAN DEFAULT TRUE,
