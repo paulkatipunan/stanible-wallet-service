@@ -593,6 +593,8 @@ func TransactionList(
 	var sql string = `
 		SELECT
 			ft.pk_fiat_transaction_id as transaction_id,
+			fc.symbol,
+			fc.numeric_precision,
 			CAST(ft.total_amount as Integer),
 			tt.type as transaction_type,
 			COALESCE(fta_sender.ramp_tx_id, fta_receiver.ramp_tx_id) as reference_number,
@@ -616,6 +618,10 @@ func TransactionList(
 			accounts a
 			ON
 				a.user_id = ft.fk_user_id
+		LEFT JOIN
+			fiat_currencies fc
+			ON
+				fc.pk_fiat_currency_id = ft.fk_fiat_currency_id
 		WHERE
 			ft.fk_user_id = $1 AND
 			a.active = true AND
@@ -645,6 +651,8 @@ func TransactionList(
 		var fiatTransaction models.Fiat_transaction_list_model
 		_ = rows.Scan(
 			&fiatTransaction.Pk_fiat_transaction_id,
+			&fiatTransaction.Fiat_currency_symbol,
+			&fiatTransaction.Numeric_precision,
 			&fiatTransaction.Total_amount,
 			&fiatTransaction.Type,
 			&fiatTransaction.Ramp_tx_id,
