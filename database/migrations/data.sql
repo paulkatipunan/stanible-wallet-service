@@ -8,24 +8,9 @@ VALUES
 	('4f6116ee-9271-4b72-9a4c-70eba27fadcd', 'fee');
 
 INSERT INTO
-	fiat_currencies(pk_fiat_currency_id, name, symbol)
+	fiat_currencies(pk_fiat_currency_id, name, symbol, numeric_precision)
 VALUES
-	('76eb713b-5bd1-4a54-968b-3897e88a50fb', 'Philippine Peso', 'PHP');
-
-INSERT INTO
-	accounts(user_id, type)
-VALUES
-	('2681d82e-dd66-4357-96dc-ee5c7b7a6797', 'gcash_deposit'),
-	('55e34c28-d3f9-4161-a910-dc643adfffd3', 'gcash_withdraw'),
-	('ae582449-ec97-4c41-812b-d5c25d26c882', 'grabpay_withdraw'),
-	('2c5d991b-909c-4cee-a652-8e5c3a0ccbf2', 'grabpay_deposit'),
-	('d5e4698f-0cf4-4ab3-80da-5aa0d14876d4', 'paymaya_deposit'),
-	('9b955c81-17ce-487d-9bf2-9686349ca652', 'paymaya_withdraw'),
-	('37fda4f6-acdb-4411-995e-305e226dd4c9', 'treasury'),
-	('9aa8ed53-dc51-448c-82fe-5f017f1c18fb', 'regular_user'),
-	('c59c8ca5-8d67-4d03-ab12-8a824ceb754e', 'creator'),
-	('121ab07d-bcf8-46a8-a111-ce053bc0eb69', 'regular_user'),
-	('aa9b25dd-951c-4845-bb93-30c9d4bb4ca1', 'admin');
+	('76eb713b-5bd1-4a54-968b-3897e88a50fb', 'Philippine Peso', 'PHP', '12,2');
 
 INSERT INTO fiat_fee_types(fee_name) VALUES ('buy'), ('deposit');
 

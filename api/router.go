@@ -110,7 +110,8 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 		return
 	}
-	if (transactionPayload.Amount + bal) >= enums.BALANCE_CAP {
+
+	if (transactionPayload.Amount + bal) > enums.BALANCE_CAP {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Balance cap exceeded", nil))
 		return
