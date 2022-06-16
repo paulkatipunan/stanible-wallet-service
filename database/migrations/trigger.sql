@@ -5,5 +5,3 @@ BEGIN
     RETURN NEW; 
 END;
 $$ language 'plpgsql';
-
-CREATE TRIGGER update_table_modtime BEFORE UPDATE ON fiat_transactions FOR EACH ROW EXECUTE PROCEDURE on_update_trigger();
