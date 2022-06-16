@@ -39,4 +39,6 @@ var PaymentUserTypes = map[string]string{
 	"GCASH_WITHDRAW":   "gcash_withdraw",
 	"PAYMAYA_DEPOSIT":  "paymaya_deposit",
 	"PAYMAYA_WITHDRAW": "paymaya_withdraw",
+	"GRABPAY_WITHDRAW": "grabpay_withdraw",
+	"GRABPAY_DEPOSIT":  "grabpay_deposit",
 }
