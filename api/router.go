@@ -103,7 +103,7 @@ func fiatDeposit(w http.ResponseWriter, r *http.Request) {
 	// Validation#04
 	// Check balance cap
 	// Balance is from the receiving account
-	bal, err := utils.AccountBalance(transactionPayload.Receiver_user_id)
+	bal, _, _, err := utils.AccountBalance(transactionPayload.Receiver_user_id, transactionPayload.Fiat_currency_id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -159,7 +159,7 @@ func fiatBuy(w http.ResponseWriter, r *http.Request) {
 
 	// Check balance
 	// Balance is from the sending account
-	bal, err := utils.AccountBalance(transactionPayload.Sender_user_id)
+	bal, _, _, err := utils.AccountBalance(transactionPayload.Sender_user_id, transactionPayload.Fiat_currency_id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -434,15 +434,20 @@ func fiatTransactionList(w http.ResponseWriter, r *http.Request) {
 func fiatWalletBalance(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	user_id := vars["user_id"]
+	fiat_currency_id := r.URL.Query().Get("fiat_currency_id")
 
-	bal, err := utils.AccountBalance(user_id)
+	bal, symbol, numeric_precision, err := utils.AccountBalance(user_id, fiat_currency_id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(utils.Response("error", "Bad request", nil))
 	} else {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(utils.Response("success", "", []string{strconv.Itoa(int(bal))}))
+		json.NewEncoder(w).Encode(utils.Response("success", "", []string{
+			symbol,
+			numeric_precision,
+			strconv.Itoa(int(bal)),
+		}))
 	}
 }
 

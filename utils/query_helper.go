@@ -391,19 +391,26 @@ func InsertFiatTransactionWithFeeRecord(
 	return nil
 }
 
-func AccountBalance(userId string) (int32, error) {
+func AccountBalance(userId string, fiat_currency_id string) (int32, string, string, error) {
 	db := database.CreateConnection()
 	defer db.Close()
 
 	var balance int32
 	var pk_account_id string
+	var symbol string
+	var numeric_precision string
 
 	sqlUser := `SELECT pk_account_id FROM accounts WHERE user_id = $1`
 	errUser := db.QueryRow(sqlUser, userId).Scan(&pk_account_id)
 
 	if errUser != nil {
-		fmt.Println("error 01")
-		return balance, errUser
+		return balance, "", "", errUser
+	}
+
+	sqlCurrency := `SELECT symbol, numeric_precision FROM fiat_currencies WHERE pk_fiat_currency_id = $1`
+	errCurrency := db.QueryRow(sqlCurrency, fiat_currency_id).Scan(&symbol, &numeric_precision)
+	if errUser != nil {
+		return balance, "", "", errCurrency
 	}
 
 	sql := `
@@ -444,7 +451,7 @@ func AccountBalance(userId string) (int32, error) {
 			ft.status = 'success'
 	`
 	db.QueryRow(sql, userId, userId).Scan(&balance)
-	return balance, nil
+	return balance, symbol, numeric_precision, nil
 }
 
 func RequestList(transaction_type string) []models.RequestListModel {
